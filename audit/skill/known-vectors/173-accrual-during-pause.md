@@ -25,4 +25,4 @@ rg -n 'paused|is_paused' programs/
 - ✅: pause is economically neutral (or the trade-off is documented)
 - ❌: unpause creates instant liquidations or stranded rewards
 
-*Sources: sanbir/solana-auditor-skills B4 (MIT, Copyright (c) 2024 AI Skills Contributors), presented as options; pashov/skills pause-path pattern, paused-reward part (same copyright).*
+*Sources: sanbir/solana-auditor-skills `solana-auditor/references/attack-vectors/attack-vectors-4.md` V100 (MIT, Copyright (c) 2024 AI Skills Contributors), presented as options; pashov/skills `solidity-auditor/references/hacking-agents/invariant-agent.md` pause-path pattern, paused-reward part (same copyright).*

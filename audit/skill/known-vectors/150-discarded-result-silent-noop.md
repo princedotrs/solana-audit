@@ -65,4 +65,4 @@ state.paid_out = state.paid_out.checked_add(amount).ok_or(ProgramError::Arithmet
 - ✅: no discarded fallible result on value or state paths
 - ❌: any reachable silent no-op or default-on-error that affects value or authority
 
-*Sources: Trail of Bits `rust-review` result-discarded finder [paraphrased, CC-BY-SA-4.0, https://github.com/trailofbits/skills] (credited; fixed example rewritten to a token transfer); sanbir/solana-auditor-skills B7 (MIT, Copyright (c) 2024 AI Skills Contributors); SlowMist U3 (Apache-2.0, attributed to SlowMist), corrected.*
+*Sources: Trail of Bits `plugins/rust-review/prompts/general/result-discarded-finder.md` [paraphrased, CC-BY-SA-4.0, https://github.com/trailofbits/skills] (credited; fixed example rewritten to a token transfer); sanbir/solana-auditor-skills `solana-auditor/references/attack-vectors/attack-vectors-2.md` V34, corrected (MIT, Copyright (c) 2024 AI Skills Contributors); SlowMist best practices `README.md` "Error not handled" [https://github.com/slowmist/solana-smart-contract-security-best-practices] (Apache-2.0, attributed to SlowMist), corrected.*

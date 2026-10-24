@@ -46,7 +46,7 @@ grep -rn --include="*.rs" -iE "circuit.?breaker|max.*outflow|rate.?limit|withdra
 - Review signals (not proof): timelock removal/shortening; threshold reduction or signer rotation bundled with other admin changes; emergency-authority migration before a high-impact action; signer churn; pre-signed admin txs accepted without fresh confirmation (OPS-092)
 - False-positive guard: durable nonces alone are not a finding.
 
-*Sources: beriktassuly/solana-audit-skill U7 (MIT, Copyright (c) 2026 Berektassuly).*
+*Sources: beriktassuly/solana-audit-skill `skill/references/taxonomy/durable-nonce-governance.md` (MIT, Copyright (c) 2026 Berektassuly).*
 
 **Overall verdict:**
 - ✅: Admin/governance instructions are recent-blockhash-only (or version/epoch-guarded), gated by a timelock, and bounded by an aggregate-outflow circuit breaker

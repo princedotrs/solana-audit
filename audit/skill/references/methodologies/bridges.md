@@ -134,7 +134,7 @@ Each worksheet lists the safe shape. FAIL if any line is missing on any reachabl
   (B2/B3).
 - Library/config setters (LayerZero): OApp owner authorized; target address is registered and non-zero.
 
-*Sources: Trail of Bits not-so-smart-contracts/solana §3/§6 [paraphrased, AGPL-3.0, cited: https://github.com/crytic/building-secure-contracts/tree/master/not-so-smart-contracts/solana].*
+*Sources: Trail of Bits not-so-smart-contracts `solana/sysvar_account_check` [paraphrased, AGPL-3.0, cited: https://github.com/crytic/building-secure-contracts/tree/master/not-so-smart-contracts/solana/sysvar_account_check].*
 
 ---
 

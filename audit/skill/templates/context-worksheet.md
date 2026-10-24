@@ -38,4 +38,4 @@ File: {path} | Lines: {start}-{end} | Access tier: {permissionless | user | mana
 ## Unresolved — next place to look
 - {question} — look at {file / fn / account}
 
-*Sources: Trail of Bits `audit-context-building` [paraphrased, CC-BY-SA-4.0, https://github.com/trailofbits/skills].*
+*Sources: Trail of Bits `plugins/audit-context-building/skills/audit-context-building/SKILL.md` [paraphrased, CC-BY-SA-4.0, https://github.com/trailofbits/skills].*

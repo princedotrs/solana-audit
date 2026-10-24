@@ -51,4 +51,4 @@ pub struct WithdrawTokens<'info> {
 - ✅: every internal-looking handler is safe when called directly
 - ❌: any is not
 
-*Sources: SlowMist solana-smart-contract-security-best-practices (Apache-2.0, attributed to SlowMist), paraphrased and corrected.*
+*Sources: SlowMist solana-smart-contract-security-best-practices `README.md` "Case Analysis" (Jet `withdraw_tokens`) [https://github.com/slowmist/solana-smart-contract-security-best-practices] (Apache-2.0, attributed to SlowMist), paraphrased and corrected.*

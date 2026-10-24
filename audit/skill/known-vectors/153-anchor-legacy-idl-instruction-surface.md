@@ -59,4 +59,4 @@ idl-build = ["anchor-lang/idl-build"]
 - ⚠️: IDL authority on a single key
 - ❌: unclaimed IDL account, cosplay against a missing type check, or tag shadowing
 
-*Sources: PlamenTSV/plamen §1 (MIT, Copyright (c) 2025-2026 Plamen Contributors); 0xMacro/awesome-solana-security → Accretion [paraphrased, cited: https://github.com/0xMacro/awesome-solana-security]; solana-foundation/solana-dev-skill #4i (MIT, Copyright (c) 2026); all version, dispatch-order, squatting and tag-byte facts checked against solana-foundation/otter-sec anchor source (Apache-2.0).*
+*Sources: PlamenTSV/plamen `prompts/solana/phase4b-scanner-templates.md` CHECK 8b and `agents/skills/solana/account-validation/SKILL.md` (MIT, Copyright (c) 2025-2026 Plamen Contributors); 0xMacro/awesome-solana-security → Accretion [paraphrased, cited: https://github.com/0xMacro/awesome-solana-security]; solana-foundation/solana-dev-skill `skills/solana-dev/references/anchor/migrating-v0.32-to-v1.md` (legacy IDL accounts) (MIT, Copyright (c) 2026); all version, dispatch-order, squatting and tag-byte facts checked against solana-foundation/otter-sec anchor source (Apache-2.0).*

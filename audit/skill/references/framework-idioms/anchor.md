@@ -37,7 +37,7 @@ Anchor would have enforced.
 
 <!-- verified: anchor v1.0.1→v1.0.2 diff lang/src/accounts/program.rs (removed `is_unit_type = T::id() == Pubkey::default()`; added separate `Program<'a, ()>` impl); v1.0.3/v1.1.0/v1.2.1 fixed; v2.0.0-rc.1 and v2.0.0-rc.2 lang/src/accounts/program.rs still contain `is_unit_type`; anchor v1.2.1 lang/src/accounts/option.rs (`accounts[0].key == program_id` → None; empty `accounts` → None only under `allow-missing-optionals`); v1.2.1 lang/src/accounts/account.rs, interface_account.rs, account_loader.rs (`try_from_unchecked`, `new_unchecked`, `load`/`load_init`); v1.0.0 vs v1.2.1 lang/src/accounts/lazy_account.rs `unload`; CHANGELOG 0.31.0 #3194, 1.0.0 #4139, 1.2.0 #4162/#4784 -->
 
-*Sources: otter-sec/anchor `program.rs`, `lazy_account.rs`, `account_loader.rs`, CHANGELOG and GHSA advisories (Apache-2.0, Copyright 2020 Anchor Maintainers), summarised and re-checked against solana-foundation/anchor tags v1.0.1/v1.0.2/v1.2.1; solana-foundation/solana-dev-skill (MIT, Copyright (c) 2026); crytic/solana-lints [paraphrased]; Solana Foundation Program Security course [paraphrased].*
+*Sources: otter-sec/anchor `program.rs`, `lazy_account.rs`, `account_loader.rs`, CHANGELOG and GHSA advisories (Apache-2.0, Copyright 2020 Anchor Maintainers), summarised and re-checked against solana-foundation/anchor tags v1.0.1/v1.0.2/v1.2.1; solana-foundation/solana-dev-skill `skills/solana-dev/references/programs/anchor.md` and `skills/solana-dev/references/anchor/migrating-v0.32-to-v1.md` (MIT, Copyright (c) 2026); crytic/solana-lints [paraphrased, https://github.com/crytic/solana-lints]; Solana Foundation Program Security course [paraphrased, https://github.com/solana-foundation/developer-content/tree/main/content/courses/program-security].*
 
 **Auditor check**
 - ✅ PASS: every account holding typed program data uses `Account<'info, T>` (or the
@@ -159,7 +159,7 @@ ctx.accounts.pool.reload()?;           // re-read if the callee may have written
 ```
 
 <!-- verified: anchor v0.31.1 vs v1.0.0 lang/src/accounts/account.rs `reload`; v1.2.1 lang/src/accounts/account.rs `exit` → `exit_with_expected_owner` (skips the write when closed or owner ≠ program); agave v4.5.0-alpha.2 transaction-context/src/instruction_accounts.rs `set_owner` (owned by current program, writable, `is_zeroed(data)`) -->
-*Sources: otter-sec/anchor CHANGELOG (Apache-2.0); Zellic "The Vulnerabilities You'll Write With Anchor" [paraphrased, cited: https://www.zellic.io/blog/the-vulnerabilities-youll-write-with-anchor]; solana-foundation/solana-dev-skill #8 (MIT, Copyright (c) 2026).*
+*Sources: otter-sec/anchor CHANGELOG (Apache-2.0); Zellic "The Vulnerabilities You'll Write With Anchor" [paraphrased, cited: https://www.zellic.io/blog/the-vulnerabilities-youll-write-with-anchor]; solana-foundation/solana-dev-skill `skills/solana-dev/references/security.md` "Stale Account State Around CPIs" (MIT, Copyright (c) 2026).*
 
 ---
 
@@ -187,7 +187,7 @@ common failures are *silent no-ops*, not compile errors.
 <!-- verified: anchor v0.31.1 / v1.2.1 lang/src/common.rs `close`; lang/syn/src/codegen/accounts/constraints.rs `generate_constraint_close` (`#field.key() == #target.key()` → ConstraintClose) -->
 <!-- verified: anchor v1.2.1 lang/syn/src/codegen/accounts/try_accounts.rs `generate_duplicate_mutable_checks`, duplicate_mutable_account_keys.rs; CHANGELOG 1.0.0 #3946/#4202/#4239 -->
 <!-- verified: anchor v0.31.1 / v1.2.1 constraints.rs `generate_constraint_realloc` (shrink branch: `__lamport_amt = lamports - __new_rent_minimum` credited to payer); `generate_constraint_zeroed`; `generate_constraint_has_one` (`let my_key = …; let target_key = #target.key()`), `generate_constraint_owner` (`let my_owner = …; let owner_address = #expr`), `generate_constraint_address` (`let actual = …; let expected = #addr`), associated-token codegen (`let my_owner = …; let wallet_address = #wallet.key()`, followed by the `get_associated_token_address(&wallet_address, mint)` key check); v2.0.0-rc.2 constraints.rs (same temporaries); `impl Key for Pubkey` in lang/src/lib.rs; lang/attribute/account/src/lib.rs (prefix compare, `gen_discriminator(namespace, account_name)`, 1.2.x all-zero panic); idl/src/build.rs (ambiguous-prefix, all-zero and `zero`-conflict checks); lang/derive/accounts/src/lib.rs `zero` docs -->
-*Sources: otter-sec/anchor CHANGELOG and footguns.mdx (Apache-2.0, Copyright 2020 Anchor Maintainers); original analysis; coral-xyz/sealevel-attacks, crytic/solana-lints, Solana Foundation course [paraphrased, cited]; solana-foundation/solana-dev-skill (MIT, Copyright (c) 2026).*
+*Sources: otter-sec/anchor CHANGELOG and footguns.mdx (Apache-2.0, Copyright 2020 Anchor Maintainers); original analysis; coral-xyz/sealevel-attacks, crytic/solana-lints, Solana Foundation course `content/courses/program-security/` [paraphrased, cited]; solana-foundation/solana-dev-skill `skills/solana-dev/references/security.md` (MIT, Copyright (c) 2026).*
 
 **Auditor check**
 - ✅ PASS: every PDA constraint pairs `seeds` + a stored `bump`; seeds are collision-safe;
@@ -315,7 +315,7 @@ Each `Account<T>` field is its own deserialized copy; changes through one are in
 
 > Note (Apache-2.0): two sentences from Anchor `footguns.mdx` used in KV-156 are reproduced verbatim with attribution; the surrounding text is rewritten (a change, as Apache-2.0 §4(b) requires us to state).
 
-*Sources: otter-sec/anchor (Apache-2.0, Copyright 2020 Anchor Maintainers); solana-foundation/solana-dev-skill #4 (MIT, Copyright (c) 2026); Ackee-Blockchain Solana-Auditors-Bootcamp CTF level-2 and Lesson-6 [paraphrased, no licence, https://github.com/Ackee-Blockchain/Solana-Auditors-Bootcamp].*
+*Sources: otter-sec/anchor (Apache-2.0, Copyright 2020 Anchor Maintainers); solana-foundation/solana-dev-skill `skills/solana-dev/references/anchor/migrating-v0.32-to-v1.md` and `skills/solana-dev/references/programs/anchor.md` (MIT, Copyright (c) 2026); Ackee-Blockchain Solana-Auditors-Bootcamp `Capture-the-Flag/level-2` and `Lesson-6/duplicate-mutable-accounts` [paraphrased, no licence, https://github.com/Ackee-Blockchain/Solana-Auditors-Bootcamp].*
 
 ---
 

@@ -35,3 +35,5 @@ Deprecated instructions still callable with weaker checks than their replacement
 
 ## 8. Evidence
 Prove migrations against realistic state: mainnet-dumped accounts in LiteSVM/Mollusk, byte-diff of carried fields, negative test on already-migrated accounts.
+
+*Sources: PlamenTSV/plamen `agents/skills/solana/migration-analysis/SKILL.md` (MIT, Copyright (c) 2025-2026 Plamen Contributors); beriktassuly/solana-audit-skill `skill/references/taxonomy/upgrade-admin-governance.md` (MIT, Copyright (c) 2026 Berektassuly); rewritten and extended, as in KV-160.*

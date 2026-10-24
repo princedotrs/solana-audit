@@ -45,4 +45,4 @@ if ctx.accounts.payer.key() == ctx.accounts.stake.owner {
 - ✅: nobody else can move a user's timer; zero-amount calls are inert
 - ❌: they can
 
-*Sources: sanbir/solana-auditor-skills B3 (MIT, Copyright (c) 2024 AI Skills Contributors); pashov/skills timer-reset pattern (same copyright) with an added weighted-unlock caveat.*
+*Sources: sanbir/solana-auditor-skills `solana-auditor/references/attack-vectors/attack-vectors-4.md` V85 (MIT, Copyright (c) 2024 AI Skills Contributors); pashov/skills `solidity-auditor/references/hacking-agents/invariant-agent.md` timer-reset pattern (same copyright) with an added weighted-unlock caveat.*

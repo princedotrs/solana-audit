@@ -48,4 +48,4 @@ pub authority: Signer<'info>,
 - ✅: every role-named destination is anchored to the role
 - ❌: a privileged path can pay a role's value to any same-mint account
 
-*Sources: qedgen/solana-skills role-token-account pattern (MIT, Copyright (c) 2025 QEDGen). The corpus's advisory identifier and PR number could not be checked against a primary source, so they are omitted.*
+*Sources: qedgen/solana-skills `skills/qedgen-auditor/references/category-catalog.md` `token_account_role_anchoring` (MIT, Copyright (c) 2025 QEDGen). The corpus's advisory identifier and PR number could not be checked against a primary source, so they are omitted.*

@@ -2,7 +2,7 @@
 
 > Maps each audit checklist to the exact files/globs that must be scanned.  
 > These are defaults. A target with another layout records its in-scope paths at intake (`QUESTIONS.md` Q39, exclusions under Q44, written to `audit_<n>/intake.md` §1) instead of editing this file, which a shared install overwrites on update.  
-> Scope: Solana on-chain programs (Anchor / native `solana-program` / Pinocchio). Off-chain code — TypeScript / Python / Go clients, backends, frontends, CI workflows, off-chain Rust services — is out of scope for this skill; list it as excluded in Scope Coverage (see [Out of Scope](#out-of-scope--off-chain-code)).
+> Scope: Solana on-chain programs (Anchor / native `solana-program` / Pinocchio). Off-chain code — TypeScript / Python / Go clients, backends, frontends, off-chain Rust services — is out of scope for this skill; list it as excluded in Scope Coverage (see [Out of Scope](#out-of-scope--off-chain-code)). Deploy / admin scripts and CI jobs that hold program, upgrade-authority or admin keys stay in scope for checklists 07, 11 and 12.
 
 ---
 
@@ -20,14 +20,14 @@
 │       ├── mod.rs
 │       └── *.rs
 ├── apps/ clients/ services/        # Off-chain code (out of scope — list as excluded)
-├── packages/                       # Shared packages
+├── scripts/ migrations/            # Deploy / admin tooling (keys: checklists 11, 12)
 ├── tests/                          # Program tests / fuzz harnesses (checklist 16)
 ├── target/                         # Build output (gitignored)
-│   ├── idl/                        # Generated IDL
-│   └── types/                      # Generated TS types
-├── Anchor.toml                     # Anchor config
-├── Cargo.toml                      # Rust workspace
-├── package.json                    # Root package.json
+│   ├── deploy/                     # Program .so + program keypair (<program>-keypair.json)
+│   └── idl/                        # Generated IDL
+├── Anchor.toml                     # Anchor config ([provider] wallet path)
+├── Cargo.toml / Cargo.lock         # Rust workspace + lock file
+├── .github/workflows/              # CI (in scope where it deploys or holds keys)
 └── .env*                           # Environment (gitignored)
 ```
 
@@ -96,8 +96,8 @@ PRIMARY:
   programs/*/src/state/*.rs            # PDA seed definitions
 
 GREP PATTERNS:
-  "CpiContext::new("              → Check first arg is Pubkey
-  "CpiContext::new_with_signer("  → Check first arg is Pubkey
+  "CpiContext::new("              → Program id from a typed Program/Interface account or a constant (Anchor ≥ 1.0 takes a Pubkey, 0.x an AccountInfo)
+  "CpiContext::new_with_signer("  → Same, plus signer seeds match the PDA authority
   "invoke_signed"                 → Check seeds correct
   "invoke("                       → Flag bare invoke (should be invoke_signed for PDA)
   "token::transfer"               → Check from/to/authority
@@ -130,9 +130,9 @@ PRIMARY:
 
 GREP PATTERNS:
   "min_.*_out"           → Slippage protection (adapt field name to your protocol)
-  "total_shares\|total_supply" → Share math invariants (adapt to your token/share field names)
-  "total_assets\|total_value"  → Asset tracking field (adapt to your protocol)
-  "admin_fee\|mgmt_fee"        → Fee configuration fields
+  "total_shares\|total_supply\|lp_supply" → Claim-token supply invariants (e.g. vault shares, LP tokens, LST supply)
+  "total_assets\|reserve\|total_borrow\|total_lamports" → Asset tracking fields (e.g. vault assets, AMM reserves, lending borrows, stake-pool lamports)
+  "fee_bps\|protocol_fee\|admin_fee" → Fee configuration fields
   "TREASURY\|treasury"         → Treasury address constants
   "whitelist\|allowlist"       → CPI target allowlist
 ```
@@ -144,6 +144,7 @@ PRIMARY:
   Cargo.toml                           # Dependencies, versions
   programs/*/src/lib.rs                # declare_id!
   .gitignore                           # Secrets exclusion
+  .github/workflows/*.yml              # CI that deploys / upgrades (OPS-064, OPS-067, OPS-074)
 
 TERMINAL COMMANDS:
   solana program show <PROGRAM_ID>     # Upgrade authority
@@ -160,19 +161,17 @@ GREP PATTERNS:
 ### 11 — Supply Chain
 ```
 PRIMARY:
-  package.json                         # Root (test / deploy tooling)
-  apps/*/package.json                  # Client manifests sharing the workspace lockfile
-  packages/*/package.json              # Shared
-  package-lock.json                    # Lock file
-  Cargo.toml                           # Rust workspace
+  Cargo.toml / programs/*/Cargo.toml   # Rust workspace + program crates
   Cargo.lock                           # Rust lock file
+  deny.toml                            # cargo-deny policy (SC-067), if present
+  tests/fixtures/*.so, *.so dumps      # Vendored program binaries (SC-066)
+  package.json + lockfile              # Only for deploy / admin tooling that loads keypairs (SC-005, SC-011)
 
 TERMINAL COMMANDS (from a scratch dir OUTSIDE the target tree, on copies of the manifest +
 lockfile, toolchain pinned — OUTPUT-RULES Rule 11a, FULL-AUDIT Step 3.2):
-  npm audit                            # Known vulnerabilities
-  cargo audit                          # Rust vulnerabilities
-  npm info <pkg> time                  # Publish date check
-  npm outdated                         # Outdated packages
+  cargo audit                          # Rust vulnerabilities (SC-004)
+  cargo deny check advisories bans sources  # Yanked / duplicate / git sources (SC-063, SC-067)
+  cargo outdated                       # Outdated crates (SC-018)
 ```
 
 ### 12 — Secrets & Key Management
@@ -182,13 +181,14 @@ PRIMARY:
   .env*                                # Should not exist in repo
   Anchor.toml                          # [provider] wallet path, cluster
   scripts/ / migrations/               # Deploy / admin scripts loading keypairs
-  apps/**                              # Client code: scanned for secrets only (SEC-014..015, SEC-026..028)
+  target/deploy/                       # Program keypairs — must not be committed (SEC-019)
+  .github/workflows/*.yml              # CI that deploys or signs admin txs (SEC-045, SEC-046)
 
 SCAN TARGETS (entire repo):
-  **/*.ts
-  **/*.tsx
-  **/*.json
   **/*.rs
+  **/*.ts
+  **/*.json
+  **/*.toml
   **/*.env*
   **/*.pem
   **/*keypair*
@@ -200,6 +200,8 @@ TERMINAL COMMANDS (git with the OUTPUT-RULES Rule 11c prefix):
   GIT_NO_LAZY_FETCH=1 git --no-pager -c core.fsmonitor=false -c log.showSignature=false \
     log --all --no-textconv --no-ext-diff -S "private" --oneline   # Secrets in git history
   find . -name "*keypair*.json"        # Key files in repo
+  GIT_NO_LAZY_FETCH=1 git --no-pager -c core.fsmonitor=false -c log.showSignature=false \
+    ls-files -- 'target/deploy/*'      # Committed program keypairs
 ```
 
 ### 16 — Formal Verification & Testing Quality
@@ -211,22 +213,19 @@ PRIMARY (CI/CD & Testing):
   **/*.fuzz.* / **/fuzz_targets/       # Fuzz targets
 
 PROJECT CONFIG:
-  .clippy.toml                         # Rust linter config
-  .eslintrc* / eslint.config.*         # Linter config for TS test harnesses
-  .prettierrc*                         # Formatter config
-  codecov.yml / .coveragerc            # Coverage config
+  .clippy.toml / clippy.toml           # Rust linter config
+  codecov.yml                          # Coverage config
   trident-tests/ / Trident.toml        # Trident fuzzing (FV-071)
 
 GREP PATTERNS:
   "proptest\|quickcheck\|fast-check\|hypothesis" → Property-based testing
   "fuzz\|fuzzing\|fuzzer"             → Fuzz testing
-  "coverage\|lcov\|tarpaulin\|istanbul" → Coverage measurement
-  "clippy\|eslint\|semgrep\|slither"  → Static analysis
+  "coverage\|lcov\|tarpaulin\|llvm-cov" → Coverage measurement
+  "clippy\|semgrep\|cargo-audit\|cargo-deny" → Static analysis
   "INVARIANT\|invariant\|conservation" → Documented invariants
   "trident\|mollusk\|litesvm\|kani\|certora" → Solana verification tooling (FV-071)
   ".unwrap()"                          → Panic-prone code in Rust
-  "catch {}\|catch(e) {}"             → Swallowed errors
-  "@ts-ignore\|@ts-nocheck"           → Suppressed type checks
+  "#\[allow(clippy"                    → Suppressed lints in program code
 ```
 
 ---
@@ -237,13 +236,14 @@ GREP PATTERNS:
 LOCATE (to list as excluded in Scope Coverage, never to audit):
   **/*.rs  EXCLUDING programs/** and target/**   # Off-chain Rust: geyser plugins, indexers, keepers, signer services
   apps/** / clients/** / services/**              # TS / Python / Go clients, backends, frontends
-  .github/workflows/*.yml                         # CI pipeline security (read only for checklist 16 test / analysis coverage)
+  .github/workflows/*.yml                         # Non-deploy CI jobs (read only for checklist 16 test / analysis coverage)
 
 TERMINAL COMMANDS:
   find . -name "*.rs" -not -path "./programs/*" -not -path "./target/*"  # Enumerate off-chain Rust
 
 STILL IN SCOPE THERE:
-  Secrets and keypairs (checklist 12), manifests and lockfiles (checklist 11)
+  Program / upgrade-authority / admin keys (checklist 12), deploy / admin tooling that loads them
+  (checklist 11 SC-005, SC-045, SC-062), CI jobs that deploy or sign admin txs (checklists 07, 12)
 ```
 
 ---

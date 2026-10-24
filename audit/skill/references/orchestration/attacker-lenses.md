@@ -4,7 +4,7 @@ Each lens hunts the same bundle with a different mindset and is told "other lens
 
 **Shared rules for every lens.** When you find a bug in one handler, search every other handler and module for the same pattern by name **and** by code shape (check Rust fn names and Anchor instruction names; for native programs walk every dispatch arm). Escalate each finding to its worst exploitable variant (a DoS may hide theft), then revisit the function and attack its other branches.
 
-> Verbatim shared rule, [verbatim, MIT, (c) 2024 AI Skills Contributors — sanbir/solana-auditor-skills `shared-rules.md`]: "When you find a bug in one instruction handler, **weaponize that pattern across every other handler and module in the bundle.** Search by function name AND by code pattern. Finding missing signer validation in `deposit()` means you check every other handler's account validation — missing a repeat instance is an audit failure."
+> Verbatim shared rule, [verbatim, MIT, (c) 2024 AI Skills Contributors — sanbir/solana-auditor-skills `solana-auditor/references/hacking-agents/shared-rules.md`]: "When you find a bug in one instruction handler, **weaponize that pattern across every other handler and module in the bundle.** Search by function name AND by code pattern. Finding missing signer validation in `deposit()` means you check every other handler's account validation — missing a repeat instance is an audit failure."
 
 | # | Lens | Focus (Solana) | Extra required fields |
 |---|---|---|---|

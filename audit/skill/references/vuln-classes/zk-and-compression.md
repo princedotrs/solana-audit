@@ -14,7 +14,7 @@
 >
 > **Scope:** Solana ZK ElGamal / confidential transfers, `spl-account-compression` + Bubblegum
 > cNFTs, and Light Protocol ZK-compression. Read alongside the arithmetic/state checklists
-> (`checklists/06`, `05`) and `known-vectors/030` (infinite-mint). Findings still route through
+> (`checklists/06`, `05`) and `known-vectors/030-infinite-mint-uncapped-supply.md` (infinite-mint). Findings still route through
 > the **Rule 5b** validation gate (`OUTPUT-RULES.md`).
 >
 > *(Credit: public incident write-ups and publicly disclosed audits — the Solana ZK ElGamal

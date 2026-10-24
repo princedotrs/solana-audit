@@ -158,7 +158,7 @@ When a protocol claims "formally verified with Kani", review the harnesses befor
 | FV-088 | Every Kani-verified function that touches accounts has a matching runtime test. Proofs on extracted pure functions do not cover owner/signer/discriminator validation (checklist 01 and a PoC are still required) | 5 |
 
 <!-- verified FV-079: agave v2.1.0 sdk/program/src/program.rs (wrapper fns over solana-cpi); anchor v0.32.0 lang/Cargo.toml (no solana-program dep) and lang/src/lib.rs `pub use solana_invoke::{invoke, invoke_signed, ..}`; pinocchio@v0.9.2 sdk/pinocchio/src/cpi.rs pub fn invoke_signed -->
-*Sources: workersio/skills `kani-proof` (MIT, Copyright (c) 2026 workers.io), adapted; stub paths verified against anchor v0.32.0 / agave v2.1.0 / pinocchio v0.9.2.*
+*Sources: workersio/skills `plugins/kani-proof/skills/kani-proof/` (PR #9 tree) (MIT, Copyright (c) 2026 workers.io), adapted; stub paths verified against anchor v0.32.0 / agave v2.1.0 / pinocchio v0.9.2.*
 
 ---
 
@@ -195,4 +195,4 @@ When a protocol claims "formally verified with Kani", review the harnesses befor
 | FV-105 | Each PoC/fuzz result states which runtime and feature set the harness emulated (runtime-context sheet). Time-dependent logic is driven by setting the Clock sysvar, not by sleeping | 4 |
 | FV-106 | The scope of coverage tooling is stated. `cargo llvm-cov`/`tarpaulin` instrument host-native tests (including `solana-program-test` in native `processor!` mode) but not SBF execution (LiteSVM, Mollusk, program-test BPF mode). Miri runs only on host tests that touch `unsafe` and cannot see UB inside a `.so` | 4 |
 
-*Sources: CDSecurity/cdsecurity-skills U2 (MIT, Copyright (c) 2026 CD Security); Solana Foundation course U6 [paraphrased, cited]; coral-xyz/sealevel-attacks #3 [paraphrased, cited]; Ackee bootcamp Lesson 3/4 [paraphrased, cited]; pashov/skills U10 (MIT, Copyright (c) 2024 AI Skills Contributors); original analysis; qedgen/solana-skills X1 (MIT, Copyright (c) 2025 QEDGen).*
+*Sources: CDSecurity/cdsecurity-skills `rust-audit-prep/references/agents/testing-agent.md` (MIT, Copyright (c) 2026 CD Security); Solana Foundation course `content/courses/program-security/signer-auth.md` and `duplicate-mutable-accounts.md` labs [paraphrased, cited]; coral-xyz/sealevel-attacks `programs/4-initialization` [paraphrased, cited]; Ackee-Blockchain Solana-Auditors-Bootcamp `Lesson-3/trident-lesson-part-i` and `Lesson-4/trident-lesson-part-ii` [paraphrased, cited]; pashov/skills `fizz/agents/invariant-discovery/roundtrip-rounding-analyst.md` (MIT, Copyright (c) 2024 AI Skills Contributors); original analysis; qedgen/solana-skills `skills/qedgen-auditor/references/probe_orchestration.md` (MIT, Copyright (c) 2025 QEDGen).*

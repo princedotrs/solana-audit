@@ -17,14 +17,14 @@
 > ComputeBudget introspection (priority-fee floor, CU floor, "budget ix must be first", anti-bot fee gate) is
 > **disabled without an error**, or rejects v1 users outright, and positional / count assumptions in
 > introspection loops go stale. This file is the audit playbook for that seam: what changed, what "correct" looks
-> like for the program (§3.1, invariant V5), and how to test it. It complements `known-vectors/135` (fee-sponsor
+> like for the program (§3.1, invariant V5), and how to test it. It complements `known-vectors/135-transaction-v1-fee-sponsor-cap-bypass.md` (fee-sponsor
 > cap bypass + program introspection). Checklist items: AV-089..090, FV-072.
 >
 > **Scope:** the on-chain program angle (V5, plus the ≤ 64 instruction / account caps that introspection relies
 > on) is primary. Off-chain roles — RPC readers, indexers, fee sponsors, senders, wallets, infra — are outside
 > this skill's checklists (off-chain code is out of scope); they stay here as **brief context** because they
 > decide how the program is invoked and who pays. A protocol-operated fee sponsor is the one off-chain role with a
-> kept vector (`known-vectors/135`): report it when it is in the engagement scope, otherwise list it under
+> kept vector (`known-vectors/135-transaction-v1-fee-sponsor-cap-bypass.md`): report it when it is in the engagement scope, otherwise list it under
 > Coverage & Limitations.
 >
 > **How to use:** §0 is the fact sheet (cite it, do not re-derive); §1 maps roles to failure modes; §2 is the
@@ -111,7 +111,7 @@ fee estimation (4–6, higher if a keeper *prices* from it).
 ## 2. Invariant catalog
 
 V5 is the on-chain invariant. V1–V4 and V6–V10 govern off-chain components and are listed as context (V4 is in
-scope when the protocol's own sponsor is, per `known-vectors/135`).
+scope when the protocol's own sponsor is, per `known-vectors/135-transaction-v1-fee-sponsor-cap-bypass.md`).
 
 | # | Invariant | Failure = |
 |---|-----------|-----------|
@@ -144,7 +144,7 @@ Each worksheet lists the safe shape. FAIL if any line is missing on any reachabl
 
 ### 3.2 Off-chain roles (context — outside this skill's checklists)
 
-**Fee sponsor / paymaster / co-signer — V1, V4, V6, V7** (see `known-vectors/135`)
+**Fee sponsor / paymaster / co-signer — V1, V4, V6, V7** (see `known-vectors/135-transaction-v1-fee-sponsor-cap-bypass.md`)
 - Decode the raw bytes the client submitted (base64); byte 0 == `0x81` ⇒ v1 branch; anything the decoder does
   not recognise ⇒ reject (fail closed). Never re-serialize from a parsed v0 model and sign *that*.
 - Caps: `priorityFee` (lamports total) + base fee (5,000 × required signatures) ≤ policy; `computeUnitLimit`,

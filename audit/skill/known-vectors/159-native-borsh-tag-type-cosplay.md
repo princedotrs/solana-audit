@@ -52,4 +52,4 @@ match ProgramAccount::try_from_slice(&acc.data.borrow())? {
 - ✅: no two program-owned types can be read as each other
 - ❌: two can, on a privileged path
 
-*Sources: crytic/solana-lints `type_cosplay` [paraphrased, no licence, https://github.com/crytic/solana-lints] (example type names changed from the lint's test layouts); coral-xyz/sealevel-attacks `3-type-cosplay` [paraphrased, cited] with the Borsh-discriminant correction; Neodyme "Common Pitfalls" [paraphrased, cited].*
+*Sources: crytic/solana-lints `lints/type_cosplay` [paraphrased, no licence, https://github.com/crytic/solana-lints] (example type names changed from the lint's test layouts); coral-xyz/sealevel-attacks `programs/3-type-cosplay` [paraphrased, cited] with the Borsh-discriminant correction; Neodyme "Common Pitfalls", "Solana account confusions" section [paraphrased, cited: https://neodyme.io/en/blog/solana_common_pitfalls].*

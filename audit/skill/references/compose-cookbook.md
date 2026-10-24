@@ -22,3 +22,5 @@ Use in FULL-AUDIT Step 1.6. A chain is reported once at the chain's severity wit
 | Saturating by design | Amount-shaped field + permissionless caller | silent value loss, no error path (MED→HIGH) |
 | Closable account (revival) | Token-program quirk + missing post-condition | small issues chained into a drain (Solens "Royal Flush" shape) |
 | Spec/docstring claims X, code does not enforce | Formal proof generated from that spec | green proof of broken behaviour (HIGH) |
+
+*Sources: qedgen/solana-skills `skills/qedgen-auditor/references/category-catalog.md` "Compose-with-what cookbook" (MIT, Copyright (c) 2025 QEDGen), rewritten; sannykim/solsec → Solens "Royal Flush" [paraphrased, cited: https://medium.com/@solens_io/schrodingers-nft-an-incinerator-spl-token-program-and-the-royal-flush-attack-58e4ce4e63dc].*

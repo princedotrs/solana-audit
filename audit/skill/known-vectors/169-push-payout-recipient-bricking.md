@@ -48,4 +48,4 @@ state.settled = true;
 - ✅: no recipient can block another's payout or a protocol state transition
 - ❌: one can
 
-*Sources: solana-foundation/solana-dev-skill #6d (MIT, Copyright (c) 2026); franpersanchez/solana-audits-skill #3 (MIT, Copyright (c) 2026 Fran Pérez) with Reallocate/sibling caveat; beriktassuly/solana-audit-skill U2 (MIT, Copyright (c) 2026 Berektassuly) with an added pull-first PASS; original analysis.*
+*Sources: solana-foundation/solana-dev-skill `skills/solana-dev/references/security.md` "Metadata Spoofing and Memo Requirements" (MIT, Copyright (c) 2026); franpersanchez/solana-audits-skill `skill/references/protocol-risk-map.md` "Token-2022 Integrations" (MIT, Copyright (c) 2026 Fran Pérez) with Reallocate/sibling caveat; beriktassuly/solana-audit-skill `skill/references/workflows/token-2022-policy-workflow.md` (MIT, Copyright (c) 2026 Berektassuly) with an added pull-first PASS; original analysis.*

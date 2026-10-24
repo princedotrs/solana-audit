@@ -11,3 +11,5 @@ Applies to finding titles, descriptions and summaries — and to hunter output, 
 **Example.** Before: "Missing owner check enables a malicious actor to leverage a spoofed config account, potentially draining the vault." After: "The instruction does not check the owner of `config`, so any caller can pass a fake config and withdraw all tokens from the vault."
 
 **Self-check.** Does the sentence name who acts and what they get? One sentence, ≤ 25 words, no `-ing` clause? Identifiers, label and diff exactly as written?
+
+*Sources: pashov/skills `solidity-auditor/references/report-language.md` (MIT, Copyright (c) 2024 AI Skills Contributors), adapted.*

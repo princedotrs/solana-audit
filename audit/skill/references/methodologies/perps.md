@@ -151,7 +151,7 @@ silently mint/burn value via funding. Property-test it alongside OI symmetry (§
 - **Funding by timestamp after a restart.** Timestamp-based funding compounds across a cluster halt in
   one step; apply the restart grace (lending.md §10).
 
-*Sources: sanbir/solana-auditor-skills B8 (MIT, Copyright (c) 2024 AI Skills Contributors); original analysis.*
+*Sources: sanbir/solana-auditor-skills `solana-auditor/references/attack-vectors/attack-vectors-4.md` V81 (MIT, Copyright (c) 2024 AI Skills Contributors); original analysis.*
 
 ---
 

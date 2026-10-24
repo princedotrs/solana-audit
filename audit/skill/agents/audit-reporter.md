@@ -14,4 +14,4 @@ You assemble, you don't re-analyze. From the session's checkpoints and findings:
 
 Follow `templates/report-template.md` exactly. Write `audit_<n>/REPORT.md`. Flag any in-scope item lacking a verdict as `[INCOMPLETE — in-scope item without verdict]`.
 
-*Sources: pashov/skills senior-auditor SOP and dedup rules; sanbir/solana-auditor-skills judging (both MIT, Copyright (c) 2024 AI Skills Contributors); PlamenTSV/plamen (MIT, Copyright (c) 2025-2026 Plamen Contributors); adapted.*
+*Sources: pashov/skills `solidity-auditor/references/senior-auditor-sop.md` and `solidity-auditor/references/dedup-and-assembly.md`; sanbir/solana-auditor-skills `solana-auditor/references/judging.md` (both MIT, Copyright (c) 2024 AI Skills Contributors); PlamenTSV/plamen `agents/skills/solana/verification-protocol/SKILL.md` (MIT, Copyright (c) 2025-2026 Plamen Contributors); adapted.*

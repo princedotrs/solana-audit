@@ -49,7 +49,7 @@ Off-chain code (TypeScript/JavaScript, Python, Go and other languages, off-chain
 ACTION: Read the following files to establish context:
   - Anchor.toml (program ID, cluster, provider)
   - Cargo.toml (workspace members, Anchor version, Solana version)
-  - package.json (root, all workspaces — dependencies, scripts; supply-chain input for checklist 11)
+  - package.json of deploy / migration / admin tooling that loads a program or authority keypair (checklist 11 SC-005, SC-011 input; other JS manifests are off-chain)
   - .gitignore (verify secrets excluded)
   - README.md (project description, architecture)
 
@@ -57,7 +57,7 @@ RECORD:
   - Program ID: ___
   - Anchor version: ___
   - Solana SDK version: ___
-  - Node.js dependencies count: ___
+  - Program crate direct dependencies count: ___
   - Git branch: ___
   - Git commit hash: ___
 ```
@@ -85,7 +85,7 @@ Rule: a finding whose verdict depends on an entry cites it on its `Preconditions
 
 <!-- verified: agave v4.5.0-alpha.2 feature-set/src/lib.rs (gate modules, ids and SIMD descriptions above; enable_loader_v4 id placeholder; loader-v4 program deleted in commit c31906430a "delete loader v4 program (#11990)") -->
 
-*Sources: original analysis; otter-sec/anchor CHANGELOG + advisories (Apache-2.0, Copyright 2020 Anchor Maintainers), summarised; PlamenTSV/plamen `fork-ancestry` (MIT, Copyright (c) 2025-2026 Plamen Contributors), adapted, Anchor-version row dropped.*
+*Sources: original analysis; otter-sec/anchor CHANGELOG + advisories (Apache-2.0, Copyright 2020 Anchor Maintainers), summarised; PlamenTSV/plamen `agents/skills/solana/fork-ancestry/SKILL.md` (MIT, Copyright (c) 2025-2026 Plamen Contributors), adapted, Anchor-version row dropped.*
 
 ### 0.2 — Map the Codebase
 
@@ -93,7 +93,7 @@ Rule: a finding whose verdict depends on an entry cites it on its `Preconditions
 ACTION: Use the in-scope paths recorded at intake (audit_<n>/intake.md §1, Q39/Q44), else the defaults in discovery/file-map.md, OR auto-discover:
   1. List all .rs files under programs/
   2. List all test files (tests/, programs/*/tests/, fuzz targets) — checklist 16 input
-  3. List all package.json / Cargo.toml / lockfiles in the repo — checklist 11 input
+  3. List all Cargo.toml / Cargo.lock files, vendored program binaries (.so) and the lockfiles of key-loading deploy tooling — checklist 11 input
   4. List all .env* files (should be in .gitignore)
   5. List all config files (anchor, cargo, rust-toolchain, etc.)
 
@@ -124,7 +124,7 @@ Rules for the matrix:
 
 <!-- verified: anchor v0.32.1 lang/syn/src/codegen/program/dispatch.rs (IDL_IX_TAG_LE dispatch under `#[cfg(not(feature = "no-idl"))]`; event handler chosen by `#[cfg(feature = "event-cpi")]` only); anchor v1.0.0 CHANGELOG "Remove legacy IDL instructions … (#3798)", no IDL_IX_TAG in v1.0.0/v1.0.3 dispatch.rs; v1.1.0 commit 93a33158 "re-added legacy idl support … (#4455)", v1.1.0–v1.2.1 dispatch.rs `Some(args) if args.legacy_idl => generate_legacy_idl_dispatch()`; v2.0.0-rc.2 dispatch.rs has no legacy_idl/IDL_IX_TAG; anchor v0.32.1 lang/syn/src/codegen/program/handlers.rs `__event_dispatch` (signer + find_program_address check) -->
 
-*Sources: franpersanchez/solana-audits-skill instruction matrix (MIT, Copyright (c) 2026 Fran Pérez), adapted.*
+*Sources: franpersanchez/solana-audits-skill `skill/SKILL.md` instruction matrix (MIT, Copyright (c) 2026 Fran Pérez), adapted.*
 
 ### 0.4 — Build State Model
 
@@ -166,7 +166,7 @@ Anti-hallucination rules (mandatory):
 - **Record disagreements, do not reconcile them.** If two worksheets disagree (one says `vault.authority` is set only in `init`, another finds a setter), keep both statements. The conflict itself is a lead to resolve against the source.
 - `UNKNOWN` is kept only for open questions ("cannot tell yet"), never for "relies on X and nothing enforces X".
 
-*Sources: Trail of Bits `audit-context-building` method [paraphrased, CC-BY-SA-4.0, https://github.com/trailofbits/skills]. Three phrases that were close to the source wording have been rewritten.*
+*Sources: Trail of Bits `plugins/audit-context-building/skills/audit-context-building/SKILL.md` method [paraphrased, CC-BY-SA-4.0, https://github.com/trailofbits/skills]. Three phrases that were close to the source wording have been rewritten.*
 
 Output worksheets to `audit_<n>/worksheets/context/{fn}.md`. These feed the Rule 5b validation gate.
 
@@ -204,7 +204,7 @@ FOR EACH instruction file in programs/*/src/instructions/
   CHECK (from 02-access-control):
     - Signer present for value-moving operations
     - Signer linked to state via has_one
-    - Role appropriate (manager/investor/delegate/permissionless)
+    - Role appropriate (admin / operator / keeper / user / permissionless — e.g. vault operator vs depositor, AMM pool admin vs LP, lending risk admin vs borrower vs liquidator, stake-pool manager vs delegator)
 
   CHECK (from 03-arithmetic):
     - Every +, -, *, / operator — is it checked_*?
@@ -213,7 +213,7 @@ FOR EACH instruction file in programs/*/src/instructions/
     - Truncation safety (u128 → u64, u64 → u32)
 
   CHECK (from 04-cpi-pda):
-    - CpiContext first arg is Pubkey (Anchor 1.0)
+    - CPI program id comes from a typed `Program<'info, T>` / `Interface<'info, T>` account or a hard-coded ID, never an unchecked account (Anchor ≥ 1.0: `CpiContext::new(program_id: Pubkey, ..)`; 0.x: `CpiContext::new(program: AccountInfo, ..)`)
     - CPI targets validated (program ID)
     - from/to/authority/amount correct in each CPI
     - invoke_signed uses correct seeds
@@ -227,22 +227,29 @@ FOR EACH instruction file in programs/*/src/instructions/
 ```
 AFTER all individual instructions reviewed:
 
-  (The items below use a share-vault protocol as the example; substitute the
-   target's own lifecycles, roles and invariants.)
+  (Substitute the target's own lifecycles, roles and invariants; the e.g.
+   lists span common protocol types.)
 
-  1. Draw the withdrawal/redeem lifecycle from code (not docs)
+  1. Draw each user-position lifecycle from code (not docs), e.g.
+       vault: deposit → withdrawal request → redeem
+       AMM: open position → add / remove liquidity → close
+       lending: open obligation → borrow → repay or liquidate → close
+       staking: deposit → unstake / cooldown → withdraw
      - Which instruction sets each status variant? (adapt to your status enum name)
      - Are all transitions present? Any dead variants?
-     - Can withdrawals get stuck?
+     - Can a user's exit get stuck?
 
   2. Draw the overall protocol lifecycle
-     - Creation → deposits → operations → withdrawals → (closure?)
+     - Creation → deposits → operations → exits → (closure?)
      - Can every created account reach a terminal state?
 
-  3. Verify invariants
-     - total_shares == shares_mint.supply
-     - total_shares == Σ(investor_position.shares)
-     - Event emission for every financial operation
+  3. Verify conservation invariants, e.g.
+     - vault: total_shares == share_mint.supply and == Σ(user_position.shares)
+     - AMM: recorded reserves == pool vault balances (net of uncollected fees)
+     - lending: available_liquidity + total_borrows == total_deposits,
+       adjusted for accrued interest and protocol fees
+     - staking: total_lamports == reserve + Σ(validator stake accounts) at the last update
+     - Event emission for every value-moving operation
 
   RECORD: lifecycle diagrams + findings
 ```
@@ -255,9 +262,11 @@ AFTER understanding all instructions:
   1. Flash loan attack paths
   2. Sandwich/MEV attack paths
   3. First depositor attack scenario
-  4. NAV manipulation scenarios
+  4. Price / exchange-rate manipulation (e.g. vault share price, AMM spot price, lending
+     collateral valuation, LST exchange rate)
   5. Fee exploitation vectors
-  6. Manager rug pull analysis
+  6. Privileged-role abuse (e.g. vault operator, pool admin, lending risk admin or
+     stake-pool manager draining, repricing or freezing user funds)
   7. Token-specific exploits
   8. DoS attack vectors
 
@@ -268,7 +277,7 @@ AFTER understanding all instructions:
 
 Run the lenses in [references/orchestration/attacker-lenses.md](references/orchestration/attacker-lenses.md) over the in-scope bundle, in parallel where the host supports it. Each lens emits FINDING / LEAD blocks (OUTPUT-RULES Rule 4b). Every FINDING then goes through Rule 5b like any checklist `[FAIL-N]`. Lens hunters are read-only inside the target repo: no PoC files there, even temporarily.
 
-### Step 1.5 — Cross-Cutting Review Passes (run on every audit)
+### Step 1.5 — Cross-Cutting Review Passes (run on every full, targeted and differential audit; a quick audit runs only P4, P5 and P10, see QUICK-AUDIT.md)
 
 Each pass catches a class that a per-checklist walk misses on a cold read. Record each pass as `PASS-Pn: done / N/A (reason)` in the coverage section.
 - **P1 Safe-utility coverage.** List every protective helper (`fn (verify|check|assert|validate|ensure|require)_*`, `*_in_place`, `safe_*`) and the primitive it guards. Any handler touching the same primitive without calling the helper is a candidate ("fixed here, not there").
@@ -289,7 +298,7 @@ Each pass catches a class that a per-checklist walk misses on a cold read. Recor
 3. Include effects that external programs (token programs, Metaplex, integrated AMMs) let an attacker produce.
 4. A chain that reaches fund loss is reported as one finding at the chain's severity, listing every component; the components stay linked. Use [references/compose-cookbook.md](references/compose-cookbook.md) as prompts, not as automatic severity. Expect 0–2 chains per audit.
 
-*Sources: qedgen/solana-skills Part P (MIT, Copyright (c) 2025 QEDGen), adapted; sannykim/solsec index → Sec3 "semantic inconsistency" stake-pool post and Solens "Royal Flush" [paraphrased, cited: https://www.sec3.dev/blog/solana-stake-pool-a-semantic-inconsistency-vulnerability-discovered-by-x-ray ; https://medium.com/@solens_io/schrodingers-nft-an-incinerator-spl-token-program-and-the-royal-flush-attack-58e4ce4e63dc]; sanbir/solana-auditor-skills shared rules (MIT, Copyright (c) 2024 AI Skills Contributors), adapted.*
+*Sources: qedgen/solana-skills `skills/qedgen-auditor/references/manual-review-passes.md` cross-cutting passes 3a–3h (MIT, Copyright (c) 2025 QEDGen), adapted; sannykim/solsec index → Sec3 "semantic inconsistency" stake-pool post and Solens "Royal Flush" [paraphrased, cited: https://www.sec3.dev/blog/solana-stake-pool-a-semantic-inconsistency-vulnerability-discovered-by-x-ray ; https://medium.com/@solens_io/schrodingers-nft-an-incinerator-spl-token-program-and-the-royal-flush-attack-58e4ce4e63dc]; sanbir/solana-auditor-skills `solana-auditor/references/hacking-agents/shared-rules.md` (MIT, Copyright (c) 2024 AI Skills Contributors), adapted.*
 
 ---
 
@@ -326,9 +335,7 @@ RECORD: governance configuration + findings
 ```
 ACTIONS:
 
-  # Check for compromised packages (SC-001, SC-002)
-  grep -rn '"axios"' --exclude-dir=node_modules --include='package.json' --include='package-lock.json' .
-  # → verify NOT 1.14.1 or 0.30.4
+  # Hijacked @solana/web3.js releases in key-loading deploy / admin tooling (SC-005)
   W3='web3\.js@(npm:)?1\.95\.(6|7)([^0-9]|$)|/web3\.js/-/web3\.js-1\.95\.(6|7)\.tgz|"@solana/web3\.js"[[:space:]]*:[[:space:]]*"=?1\.95\.(6|7)"'
   grep -rnE "$W3" --exclude-dir=node_modules --include='package.json' --include='package-lock.json' \
     --include='pnpm-lock.yaml' --include='yarn.lock' --include='bun.lock' .
@@ -342,22 +349,16 @@ ACTIONS:
 
   # Audits, registry queries and any cargo / rustc command (even --version) run from
   # a scratch dir OUTSIDE the target tree, on copies of the manifest + lockfile, with
-  # the toolchain pinned, so the target's .npmrc / .cargo/config* / rust-toolchain*
+  # the toolchain pinned, so the target's .cargo/config* / rust-toolchain*
   # cannot steer them — cargo and rustup read those from every parent directory, so
   # audit_<n>/ inside the tree is not far enough (Rule 11a)
   SCRATCH=$(mktemp -d)   # outside the target tree
   TC=$(cd "$SCRATCH" && rustup default | cut -d' ' -f1)   # your own toolchain, never the target's
-  mkdir -p "$SCRATCH/rust" "$SCRATCH/js"
+  mkdir -p "$SCRATCH/rust"
   cp Cargo.lock "$SCRATCH/rust/"
 
-  # Run npm audit + check version pinning for every JS workspace with a lockfile
-  # (e.g. the Anchor test harness, an in-repo client SDK)
-  find . -name package-lock.json -not -path '*/node_modules/*' | while IFS= read -r lock; do
-    d=$(dirname "$lock"); dst="$SCRATCH/js/${d#./}"; mkdir -p "$dst"
-    cp "$d/package.json" "$lock" "$dst/"
-    (cd "$dst" && npm audit)
-    grep -E '[\^~]' "$d/package.json"   # should be minimal
-  done
+  # Version pinning of the program crates' critical dependencies (SC-014, SC-015)
+  grep -nE '^(anchor-lang|anchor-spl|solana-program|pinocchio)[[:space:]]*=' programs/*/Cargo.toml Cargo.toml
 
   # Cargo audit (SC-004), stderr kept. It exits 1 both for advisories and for an advisory
   # database it cannot fetch or load (offline, or github.com outside an isolated run's
@@ -376,8 +377,8 @@ ACTIONS:
     echo "OUTCOME: not installed"
   fi
 
-  # Check quarantine (14-day rule) for newest deps
-  (cd "$SCRATCH" && npm info @anchor-lang/core time | tail -5)
+  # Check quarantine (14-day rule, SC-010) for the newest crate versions in Cargo.lock:
+  # crates.io `GET /api/v1/crates/<crate>/<ver>` → `created_at` (an outside service: Rule 11b)
 
   # Dependency changes since the baseline (last audited ref; first audit: last
   # release tag) → checklist 11 §11.11: review the published artifacts' code delta
@@ -394,11 +395,12 @@ RECORD: dependency audit results
 ACTIONS:
 
   # Hardcoded secrets scan
-  grep -rn "secret\|private.*key\|mnemonic\|password" --include="*.ts" --include="*.json" --include="*.rs" . \
-    | grep -v node_modules | grep -v target | grep -v ".env.example"
+  grep -rn "secret\|private.*key\|mnemonic\|seed.phrase" --include="*.rs" --include="*.ts" --include="*.json" --include="*.toml" . \
+    | grep -v node_modules | grep -v target
 
-  # Keypair files in repo
+  # Keypair files in repo, including committed program keypairs (SEC-006, SEC-007, SEC-019)
   find . -name "*keypair*.json" -o -name "*delegate*.json" -o -name "id.json" | grep -v node_modules
+  GIT_NO_LAZY_FETCH=1 git --no-pager -c core.fsmonitor=false -c log.showSignature=false ls-files -- 'target/deploy/*'
 
   # .env files committed (Rule 11c flags)
   GIT_NO_LAZY_FETCH=1 git --no-pager -c core.fsmonitor=false -c log.showSignature=false ls-files | grep -i ".env"
@@ -407,8 +409,8 @@ ACTIONS:
   GIT_NO_LAZY_FETCH=1 git --no-pager -c core.fsmonitor=false -c log.showSignature=false \
     log --all --no-textconv --diff-filter=A --name-only -- "*.env" "*.pem" "*secret*"
 
-  # NEXT_PUBLIC_ audit (SEC-014) — only when the repo also ships a web client
-  grep -rn "NEXT_PUBLIC_" --exclude-dir=node_modules --exclude-dir=target . 2>/dev/null
+  # CI jobs that deploy or upgrade (SEC-045, SEC-046, OPS-064, OPS-067)
+  grep -rnE "solana program (deploy|upgrade|set-upgrade-authority|write-buffer)|anchor (deploy|upgrade)|id\.json|KEYPAIR|PRIVATE_KEY" .github/ --include="*.yml" --include="*.yaml"
 
 RECORD: any secret exposure
 ```
@@ -432,7 +434,7 @@ ACTIONS:
   anchor test --skip-local-validator 2>&1 | tail -30
 
   # Verify .gitignore completeness (SEC-018)
-  cat .gitignore | grep -E "\.env|node_modules|target|keypair"
+  cat .gitignore | grep -E "\.env|target|keypair"
 
 RECORD: build/test results + findings
 ```
@@ -447,10 +449,10 @@ RECORD: build/test results + findings
 ACTIONS:
 
   # Check for static analysis in CI
-  grep -rn "clippy\|eslint\|semgrep\|slither\|cargo-audit\|npm audit" .github/ Makefile* scripts/ --include="*.yml" --include="*.yaml" --include="*.sh" --include="*.mjs"
+  grep -rn "clippy\|semgrep\|cargo-audit\|cargo-deny\|cargo-geiger" .github/ Makefile* scripts/ --include="*.yml" --include="*.yaml" --include="*.sh"
 
   # Check test coverage setup
-  grep -rn "coverage\|lcov\|istanbul\|tarpaulin" . --include="*.yml" --include="*.yaml" --include="*.json" --include="*.toml" | grep -v node_modules | grep -v target
+  grep -rn "coverage\|lcov\|tarpaulin\|llvm-cov" . --include="*.yml" --include="*.yaml" --include="*.json" --include="*.toml" | grep -v node_modules | grep -v target
 
   # Check for fuzz testing
   find . -name "*fuzz*" -o -name "*proptest*" | grep -v node_modules | grep -v target
@@ -530,7 +532,7 @@ The corpus covers the 100 vectors listed in `known-vectors/INDEX.md` (numbered b
     Investigate: KV-…
     Total: N classified
 
-*Sources: sanbir/solana-auditor-skills vector-scan protocol (MIT, Copyright (c) 2024 AI Skills Contributors), adapted.*
+*Sources: sanbir/solana-auditor-skills `solana-auditor/references/hacking-agents/vector-scan-agent.md` (MIT, Copyright (c) 2024 AI Skills Contributors), adapted.*
 
 ---
 
@@ -568,7 +570,7 @@ Gating criteria per category. Rubric rows map onto the scorecard as follows: Acc
 | Documentation | no statement of invariants or actors | actors/privileges list, account diagram | invariants written and mapped to tests |
 | Complexity | deeply nested handlers or duplicated validation | shared validation in constraints/helpers | each handler testable in isolation |
 
-*Sources: Trail of Bits `code-maturity-assessor` gating method [paraphrased, CC-BY-SA-4.0, https://github.com/trailofbits/skills]; Solana criteria are our own.*
+*Sources: Trail of Bits `plugins/building-secure-contracts/skills/code-maturity-assessor/resources/ASSESSMENT_CRITERIA.md` gating method [paraphrased, CC-BY-SA-4.0, https://github.com/trailofbits/skills]; Solana criteria are our own.*
 
 ---
 
@@ -581,7 +583,7 @@ Gating criteria per category. Rubric rows map onto the scorecard as follows: Acc
 3. Composite chains: if A's effect meets B's precondition and the combined impact is strictly worse, emit `Chain: [F-A] + [F-B]` at severity ≥ max, confidence = min (Step 1.6).
 4. Fix verification for confidence ≥ 75: re-trace the attack with the fix applied, confirm the fix adds no new DoS or CPI failure, and list every location where the pattern repeats.
 
-*Sources: sanbir/solana-auditor-skills (MIT, Copyright (c) 2024 AI Skills Contributors); pashov/skills dedup-and-assembly (MIT, Copyright (c) 2024 AI Skills Contributors); beriktassuly/solana-audit-skill (MIT, Copyright (c) 2026 Berektassuly); all adapted.*
+*Sources: sanbir/solana-auditor-skills `solana-auditor/SKILL.md` (MIT, Copyright (c) 2024 AI Skills Contributors); pashov/skills `solidity-auditor/references/dedup-and-assembly.md` (MIT, Copyright (c) 2024 AI Skills Contributors); beriktassuly/solana-audit-skill `rules/audit-claim-discipline.md` (MIT, Copyright (c) 2026 Berektassuly); all adapted.*
 
 ### Step 5.1 — Aggregate Findings
 
@@ -641,7 +643,7 @@ Chunking (on-chain chunk size: 1 instruction file) + checkpoint format → OUTPU
 
 **Bundling.** Do not paste source into sub-agent prompts. Build one `source.md` (one `### path` header + fenced block per in-scope `.rs` file; exclude `tests/`, `target/`, `migrations/`, `*_test.rs`, `mod.rs` without handlers) in the session scratchpad (never `/tmp` in the target), then `agent-N-bundle.md = source.md + lens prompt + shared rules`. The spawn prompt names the bundle path and line count and tells the agent to read it fully in chunks. Vector-scan bundles include only the in-scope `known-vectors/*` selected in Phase -1.
 
-*Sources: pashov/skills (MIT, Copyright (c) 2024 AI Skills Contributors); sanbir/solana-auditor-skills (same copyright); adapted. The source's remote VERSION check is deliberately not imported (conflicts with Rule 11b).*
+*Sources: pashov/skills `solidity-auditor/SKILL.md` (MIT, Copyright (c) 2024 AI Skills Contributors); sanbir/solana-auditor-skills `solana-auditor/SKILL.md` (same copyright); adapted. The source's remote VERSION check is deliberately not imported (conflicts with Rule 11b).*
 
 ### Scope Control
 - `FULL`: Checklists 01-07, 11, 12, 16, 23 (+ 21 / 22 when their markers are present) + in-scope known vectors, all program files

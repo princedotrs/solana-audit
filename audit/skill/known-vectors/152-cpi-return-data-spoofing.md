@@ -47,4 +47,4 @@ require!(out > 0 && out <= max_reasonable, ErrorCode::BadReturn);
 - ✅: every consumer checks provenance, presence, length and bounds
 - ❌: any consumer trusts unverified return data in a value decision
 
-*Sources: PlamenTSV/plamen §3 (MIT, Copyright (c) 2025-2026 Plamen Contributors); solana-foundation/anchor v1.1.0 and v2.0.0-rc.2 `lang/syn/src/codegen/program/cpi.rs`, `lang/attribute/program/src/declare_program/mods/cpi.rs` and CHANGELOG (#4411, #4624) (Apache-2.0); pashov/skills boundary Q4, corrected (MIT, Copyright (c) 2024 AI Skills Contributors).*
+*Sources: PlamenTSV/plamen `agents/skills/solana/external-precondition-audit/SKILL.md` return-data checks (MIT, Copyright (c) 2025-2026 Plamen Contributors); solana-foundation/anchor v1.1.0 and v2.0.0-rc.2 `lang/syn/src/codegen/program/cpi.rs`, `lang/attribute/program/src/declare_program/mods/cpi.rs` and CHANGELOG (#4411, #4624) (Apache-2.0); pashov/skills `solidity-auditor/references/hacking-agents/boundary-agent.md` Q4, corrected (MIT, Copyright (c) 2024 AI Skills Contributors).*

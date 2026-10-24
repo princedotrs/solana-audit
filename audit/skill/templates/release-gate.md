@@ -1,6 +1,6 @@
 # Release Gate — {program / release}
 
-Status labels (exactly these), [verbatim, MIT, (c) 2026 Berektassuly — beriktassuly/solana-audit-skill `release-gate-workflow.md`]:
+Status labels (exactly these), [verbatim, MIT, (c) 2026 Berektassuly — beriktassuly/solana-audit-skill `skill/references/workflows/release-gate-workflow.md`]:
 
 > Use exactly these status labels:
 >

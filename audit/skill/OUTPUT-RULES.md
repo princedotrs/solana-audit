@@ -2,7 +2,7 @@
 
 > This document defines the **mandatory output format** for all audit reports.  
 > Every audit — full, targeted, or single-instruction — MUST follow these rules.  
-> The only lighter outputs are the quick audit (`audit.md`, [SKILL.md](SKILL.md) → Quick Reference) and the `quick-scan` triage pass: they still follow Rules 1, 3, 5b, 10 and 11, say at the top that they are a triage pass and not a complete audit, and skip the full-report rules (Rule 0's Scope Coverage table, Rules 2, 4, 6 and 8).
+> The only lighter outputs are the quick audit (`audit.md`, [SKILL.md](SKILL.md) → Quick Reference) and the `quick-scan` triage pass. [QUICK-AUDIT.md](QUICK-AUDIT.md) is their single contract. It restates what binds them: Rule 0 discovery plus a one-line scope statement, Rules 1, 3 (checkpoint optional on small targets), 5b, 7, 10 and 11. They say at the top that they are a triage pass and not a complete audit, and skip the full-report rules: Rule 0's Scope Coverage table and Rules 2, 4, 4b, 5, 6 and 8. If QUICK-AUDIT.md and this file disagree, this file wins.
 
 ---
 
@@ -78,7 +78,24 @@ The number above is the **impact** score. A high-impact mechanism with a **low-l
 - **Defense-in-depth exceeds norms** — a redundant guard makes the gap non-exploitable in practice.
 - **Privilege required** — a role-gated path caps severity (Rule 5b Attacker-Model); a permissionless variant would score higher.
 
+**How far a lever moves.** One named lever moves the score down by at most 2 points; two independent levers by at most 4. Each lever is named with its own justification. Worked example: anyone can close another user's program account and receive its rent-exempt lamports. The decision guide gives "steal funds without preconditions, bounded amount" → 9. The *bounded blast radius* lever (rent only, one account per call, no user balances held in it) brings it to 7. Going lower than 7 needs a second, independent lever, for example *recoverable* when the victim can re-create the account at no cost beyond rent.
+
 There is no separate "Suggestion" tier — hardening ideas live at severity 1-2 (Informational), not as a distinct class.
+
+### Scoring basis and precedence
+
+- **What is assumed.** Rule 5b's grading procedure ("rate the impact ceiling assuming the precondition holds") assumes *preconditions*: an account state the program's own instructions can create, a configuration the deployment can have, a token mint the program accepts, ordinary user actions. It never assumes *impact* the code does not have. A handler that moves nothing of value has no value at stake, whatever its class. The decision guide's "theoretical → 3" covers a gap with no exploit path at all. A gap with a concrete path to real value is scored by that value.
+- **Precedence when rules disagree.** (1) A dead guard, meaning a check that exists but can never reject (inverted polarity, a tautology, a check on the wrong account), inherits the ceiling of the path it fails to protect. That ceiling replaces the decision guide's "logic bugs → 5". (2) A finding that composes into a worse chain is reported at the chain's score (Rule 5b step 4). (3) Likelihood levers apply last, within the limits above. (4) The admin-action rule of Rule 5b caps admin-only paths.
+- **Checklist and vector bands are ceilings, not scores.** A severity written in a checklist header ("Severity if missed"), in an item ("… is High") or in the known-vector INDEX Severity column is the ceiling for that class when its impact is realised. This rule and Rule 5b set the score of each finding.
+
+### Teaching code, fixtures and fragments
+
+Some targets guard nothing of value. A handler may only log, its writes may never persist (no `mut`), the account types may have no creation path anywhere in scope, or a single file may arrive without its program. Choose one basis for every finding in the run and name it in the report header:
+
+- **As written** (the default for example, tutorial, test and fixture code: an `examples/` or `tests/` tree, a README that says so, or the user says so). Score what this code can do. A real class defect in a handler that guards nothing is Low (3), with the qualifier "as written; <class>, ceiling <N> where the handler moves value". The ceiling is unscored and does not count toward the risk score.
+- **Lifecycle assumed** (a fragment of a real program, such as a module or PR whose surrounding program is not available). Assume that accounts of every declared type exist, with any contents their declared type and constraints allow, and score as for a deployed program. Say so in the header.
+
+Apply Gate 2 the same way to every finding. Under *as written*, a state that only a missing creation path could produce does not count as reachable, so the finding stays at Low with its ceiling qualifier and never rises above it. Under *lifecycle assumed*, that state is reachable. Never mix the two bases in one report. Defects outside the class a piece of teaching code was written to show are still reported, tagged `cross-class`, on the same basis.
 
 ### Notes & Nitpicks (below severity 1)
 
@@ -95,6 +112,8 @@ If highest finding ≥ 5: REPO SCORE = max(finding) (MEDIUM — fix soon)
 If highest finding ≥ 3: REPO SCORE = max(finding) (LOW — acceptable with tracking)
 If highest finding ≤ 2: REPO SCORE = max(finding) (MINIMAL — no finding above INFO; never call the code "clean", Rule 10)
 ```
+
+When the repository holds several independent programs (separate crates that share no state and no CPI path), compute the score per program as well, and show the per-program scores next to the repository score.
 
 ---
 
@@ -113,7 +132,7 @@ The auditor MUST walk through code files one at a time. Repositories can be any 
 ```
 1. DISCOVER: List all files that need auditing (use discovery/file-map.md patterns)
 2. CHUNK: Group files into manageable batches:
-   - On-chain: 1 instruction file per chunk
+   - On-chain: 1 instruction file per chunk; files under about 150 lines may be batched up to about 600 lines per chunk
    - Config: all config files in 1 chunk
 3. PROCESS: For each chunk:
    a. Read the file(s) completely
@@ -172,10 +191,10 @@ Every single checklist item and every known attack vector MUST appear in the rep
               File: programs/<program>/src/instructions/deposit.rs:42
               Impact: Attacker can substitute token account, draining vault
               Fix: Add `token::authority = fund` to account constraint
-[PARTIAL]   AV-021: has_one present but missing runtime require_keys_eq! backup
-              File: programs/<program>/src/instructions/swap.rs:18
-              Impact: Defense-in-depth gap — single point of failure
-              Fix: Add require_keys_eq! after has_one check
+[PARTIAL]   AC-010: permissionless `crank` moves value; bounded by elapsed time but undocumented
+              File: programs/<program>/src/instructions/crank.rs:18
+              Impact: Any caller chooses when rewards accrue; the trust assumption is unstated
+              Fix: Document the crank as permissionless and enforce a minimum interval
 [N/A]       AV-023: init_if_needed — not used in this program
 ```
 
@@ -217,7 +236,7 @@ Rules: no `proof:` ⇒ it is a LEAD. One vulnerability per item (same root cause
 
 **Grounding gate (mechanical).** Before a FINDING is accepted: normalise whitespace in `quote` and in each source line and search the cited file (`grep -nF -- "$QUOTE" "$FILE"`). Not found → re-locate the line in the source yourself. If the described code exists, fix the quote and line. If it does not, mark the finding `[UNCONFIRMED]` and record why (never silently delete it). Found on exactly one line → take the line number from the file, not from the model. Found on several lines → accept only if the claimed line is one of them. Require a minimum quote length (≥ 3 tokens, not just `Ok(())` or `}`). When an agent finding sits on a line the deterministic layer (pre-scan) already reported, merge it into that entry, keeping the agent's exploit path, so the issue is counted once. Grounding proves the cited code exists, not that the finding is true. An empty findings list is a normal, valid answer — say so in every hunter prompt.
 
-*Sources: sanbir/solana-auditor-skills FINDING/LEAD block and pashov/skills `shared-rules.md` (MIT, Copyright (c) 2024 AI Skills Contributors), adapted; Sealevel Sentinel grounding gate (MIT, Copyright (c) 2026 Stan (stantheman0128)), adapted. Prompt fragment, [verbatim, MIT, (c) 2026 Stan (stantheman0128)]: "Report only what the code shows. Every finding must quote the exact line it is about, copied verbatim from the source below — a finding whose quote cannot be found in the file is discarded, so do not paraphrase, reconstruct, or invent one. If you find nothing that meets that bar, return an empty list; that is a normal and useful answer."*
+*Sources: sanbir/solana-auditor-skills `solana-auditor/references/hacking-agents/shared-rules.md` FINDING/LEAD block and pashov/skills `solidity-auditor/references/hacking-agents/shared-rules.md` (MIT, Copyright (c) 2024 AI Skills Contributors), adapted; Sealevel Sentinel (stantheman0128/sealevel-sentinel) `src/llm/grounding.ts` grounding gate (MIT, Copyright (c) 2026 Stan (stantheman0128)), adapted. Prompt fragment from `src/llm/review.ts`, [verbatim, MIT, (c) 2026 Stan (stantheman0128)]: "Report only what the code shows. Every finding must quote the exact line it is about, copied verbatim from the source below — a finding whose quote cannot be found in the file is discarded, so do not paraphrase, reconstruct, or invent one. If you find nothing that meets that bar, return an empty list; that is a normal and useful answer."*
 
 ---
 
@@ -262,7 +281,7 @@ Every finding (any item that is `[FAIL-N]` with severity ≥ 4) gets a **full fi
 
 Wording of titles and descriptions follows [references/report-language.md](references/report-language.md). Identifiers, diffs and bug-class labels are never reworded.
 
-*Sources: franpersanchez/solana-audits-skill (MIT, Copyright (c) 2026 Fran Pérez) — the three "Exploitable …" templates are [verbatim, MIT, (c) 2026 Fran Pérez]; qedgen/solana-skills E7 (MIT, Copyright (c) 2025 QEDGen); workersio/skills §7 (MIT, Copyright (c) 2026 workers.io); adapted.*
+*Sources: franpersanchez/solana-audits-skill `skill/references/evidence-and-testing.md` (MIT, Copyright (c) 2026 Fran Pérez) — the three "Exploitable …" templates are [verbatim, MIT, (c) 2026 Fran Pérez]; qedgen/solana-skills `skills/qedgen-auditor/references/manual-review-passes.md` escalation step (MIT, Copyright (c) 2025 QEDGen); workersio/skills `plugins/solana-audit/skills/solana-audit/SKILL.md` Kani hand-off and `plugins/kani-proof/skills/kani-proof/references/proof-patterns.md`, PR #9 tree (MIT, Copyright (c) 2026 workers.io); adapted.*
 
 ### Findings with severity 1-3 are **not required** to have a full block — the inline verdict line is sufficient. But they CAN have one if the auditor judges it useful.
 
@@ -277,7 +296,7 @@ If the gate blocks cannot be completed with cited evidence (`file:line`), the fi
 - `[PARTIAL]` — a real defense-in-depth gap, but the exploit path is unproven; or
 - `[UNCONFIRMED]` — suspected but unreachable / unbounded as written; reported for manual follow-up, not counted as a confirmed FAIL in metrics.
 
-The gate blocks are reproduced in the finding's full block (Rule 5) and summarized in one line at the item verdict (Rule 4). *(Validation-gate pattern credit: Trail of Bits `fp-check` / `second-opinion`.)*
+The gate blocks are reproduced in the finding's full block (Rule 5) and summarized in one line at the item verdict (Rule 4). A quick audit has neither: it puts the blocks in the finding's **Validation** field, one cited line per block field (SKILL.md → Quick Reference). *(Validation-gate pattern credit: Trail of Bits `fp-check` / `second-opinion`.)*
 
 **Reachability** (required if N ≥ 6):
 
@@ -338,7 +357,7 @@ A *rejected* finding looks like this: "input ≥ 16 and header = 8 ⟹ input −
 |---|---|---|---|---|
 | 0 Refutation | Strongest argument the finding is wrong, cited | a concrete guard blocks the exact step | a smell remains though refuted | the refutation is only speculative |
 | 1 Runtime/framework | "Why does the runtime or framework *not* already block this?" Name the missing check | the runtime/framework blocks it on the pinned version (FP catalogue) | blocked only on some versions in use | the check is absent on the deployed version |
-| 2 Reachability | Does the vulnerable state exist in a live deployment? | structurally impossible | needs privileged actions outside normal operation | reachable in normal use or with common token behaviour |
+| 2 Reachability | Does the vulnerable state exist in a live deployment? (For teaching code and fragments, apply the Rule 1 basis to every finding alike.) | structurally impossible | needs privileged actions outside normal operation | reachable in normal use or with common token behaviour |
 | 3 Trigger | Can an unprivileged actor run it? | cost > extractable value **and** no griefing, lock-up or DoS impact on other users (an attack can pay off without extracting anything) | only trusted roles can trigger it (see admin amplifier) | unprivileged and profitable |
 | 4 Impact | Material harm to an identifiable victim? | self-harm only | dust, non-compounding | material loss |
 
@@ -348,7 +367,7 @@ Guardrails: `[agents: 2+]` never overrides a concrete refutation (if the refutat
 
 **Lead promotion (before final verdicts).** (a) *Cross-instruction echo*: a root cause confirmed `[FAIL-N]` in one instruction promotes the same pattern in another instruction to `[FAIL-N]` only after a reachability check in that instruction. (b) *Multi-hunter convergence*: two or more independent lenses flagged the same area and the gate demoted (not refuted) it → `[UNCONFIRMED]` `*confidence: medium`. (c) *Partial-path completion*: the only weakness is an incomplete trace, but the path is reachable and unguarded → report the description with no fix diff. (We use the "partial-path completion" rule; a fully traced chain is simply `[FAIL-N]`.)
 
-**Evidence sources.** Tag each piece of evidence `[CODE]`, `[PROD-ONCHAIN]`, `[PROD-SOURCE]`, `[PROD-LITESVM]` (mainnet accounts dumped into LiteSVM), `[MOCK]`, `[EXT-UNV]` or `[DOC]`. A finding may not be dismissed as a false positive on `[MOCK]`, `[EXT-UNV]` or `[DOC]` evidence about an external program's behaviour; downgrade to `[UNCONFIRMED]` instead.
+**Evidence sources.** Tag each piece of evidence `[CODE]`, `[PROD-ONCHAIN]`, `[PROD-SOURCE]`, `[PROD-LITESVM]` (mainnet accounts dumped into LiteSVM), `[MOCK]`, `[EXT-UNV]` or `[DOC]`. A finding may not be dismissed as a false positive on `[MOCK]`, `[EXT-UNV]` or `[DOC]` evidence about an external program's behaviour; downgrade to `[UNCONFIRMED]` instead. **Dismissing is not the same as the downgrade an FP entry prescribes.** When a `references/false-positives.md` entry states the version range in which it holds (for example "spl-token ≥ 3.1.1") and the version resolved in `Cargo.lock` lies inside that range, apply the entry's downgrade, such as "Informational hygiene", and cite the entry and the resolved version. When the entry states no range, or the resolved version lies outside it, the finding stays `[UNCONFIRMED]` until the dependency's source at that version has been read (Rule 11a → "Reading a dependency's source").
 
 **Public analogs.** "This looks like Cashio/Wormhole" supports the class label and severity band only. The finding still needs local `file:line` evidence and an exploit path.
 
@@ -356,13 +375,13 @@ Guardrails: `[agents: 2+]` never overrides a concrete refutation (if the refutat
 
 **What a reproducer must assert.** Build a pre-state that satisfies every legitimate guard; make the attacker inputs explicit; run the real `.so`; assert the violation as a post-state delta (funds moved, authority changed, conservation broken, availability lost). An expected program error is evidence only for a DoS claim, and only when the pre-state describes a valid operation that should have succeeded. A reproducer that does not fire is not a rejection by itself. First check that its pre-state and inputs actually reach the claimed step. Mark the finding `rejected` only when the trace shows a specific guard or runtime rule blocking that step, and name it. Otherwise it stays `structural`, or `hypothesis` if the path is unresolved, and the failed reproducer is recorded.
 
-**Severity grading procedure.** (1) Rate the impact ceiling assuming the precondition holds. (2) Record the gate as a qualifier ("HIGH, gated on policy X being active"). Difficulty alone (timing, capital, a rare but reachable state) changes priority, not severity; the score moves down only through a named Rule 1 lever with its worked justification, or through the admin-action rule below. (3) Drop to INFO only if no concrete attacker capability can be stated, or the precondition is unreachable by any user (spec gap). (4) A LOW that composes into a CRITICAL is reported CRITICAL; a dead guard inherits the ceiling of the path it fails to protect; do not inflate by composing with a primitive absent from this code.
+**Severity grading procedure.** (1) Rate the impact ceiling assuming the precondition holds. (2) Record the gate as a qualifier ("HIGH, gated on policy X being active"). Difficulty alone (timing, capital, a rare but reachable state) changes priority, not severity; the score moves down only through a named Rule 1 lever with its worked justification, or through the admin-action rule below. (3) Drop to INFO only if no concrete attacker capability can be stated, or the precondition is unreachable by any user (spec gap). (4) A LOW that composes into a CRITICAL is reported CRITICAL; a dead guard inherits the ceiling of the path it fails to protect (this overrides the decision guide's "logic bugs → 5", Rule 1 → Scoring basis and precedence); do not inflate by composing with a primitive absent from this code.
 
 **Inconsistent accounting that is gated today.** If a state field disagrees with an effect the program just produced, report it at INFO or above even when another guard blocks the exploit now (a refactor re-arms it; indexers read the field).
 
 **Memory-corruption severity (see KV-180).** A write-what-where together with a controllable indirect call (function pointer or `dyn` vtable in writable memory, or a `callx` register from data) is Critical: assume arbitrary CPI signed as every PDA of the program. A write-what-where or attacker-offset OOB write *without* an indirect-call target is usually High/Critical, rated by what it can corrupt (validated keys or amounts on the stack, lengths or pointers later used to build CPIs, the program's own writable accounts). An OOB read is High/Medium unless the value becomes a pointer, length or authority. A panic on malformed input with no corruption is a DoS rated by liveness impact.
 
-*Sources: sanbir/solana-auditor-skills judging gates (MIT, Copyright (c) 2024 AI Skills Contributors); pashov/skills judging (same copyright); franpersanchez/solana-audits-skill runtime-block question (MIT, Copyright (c) 2026 Fran Pérez); PlamenTSV/plamen evidence tags (MIT, Copyright (c) 2025-2026 Plamen Contributors); beriktassuly/solana-audit-skill claim discipline (MIT, Copyright (c) 2026 Berektassuly) — quoted lines [verbatim, MIT, (c) 2026 Berektassuly]: "No exploit claim without an exploit path and either reproduced behavior or locally supported code evidence." / "Public analogs can support taxonomy mapping, but they do not prove local exploitability." / "Separate confirmed findings, hypotheses, residual risks, hardening notes, and out-of-scope risks."; qedgen/solana-skills Part E (MIT, Copyright (c) 2025 QEDGen); OtterSec "Solana: jumping around in the VM" (2023) [paraphrased, cited: https://osec.io/blog/2023-12-11-jumping-around-in-the-vm].*
+*Sources: sanbir/solana-auditor-skills `solana-auditor/references/judging.md` gates (MIT, Copyright (c) 2024 AI Skills Contributors); pashov/skills `solidity-auditor/references/judging.md` (same copyright); franpersanchez/solana-audits-skill `skill/references/evidence-and-testing.md` runtime-block question (MIT, Copyright (c) 2026 Fran Pérez); PlamenTSV/plamen `agents/skills/solana/verification-protocol/SKILL.md` evidence tags (MIT, Copyright (c) 2025-2026 Plamen Contributors); beriktassuly/solana-audit-skill `rules/audit-claim-discipline.md` (MIT, Copyright (c) 2026 Berektassuly) — quoted lines [verbatim, MIT, (c) 2026 Berektassuly]: "No exploit claim without an exploit path and either reproduced behavior or locally supported code evidence." / "Public analogs can support taxonomy mapping, but they do not prove local exploitability." / "Separate confirmed findings, hypotheses, residual risks, hardening notes, and out-of-scope risks."; qedgen/solana-skills `skills/qedgen-auditor/references/severity-and-evidence.md` and `skills/qedgen-auditor/references/report-and-grading.md` (MIT, Copyright (c) 2025 QEDGen); OtterSec "Solana: jumping around in the VM" (2023) [paraphrased, cited: https://osec.io/blog/2023-12-11-jumping-around-in-the-vm].*
 
 ---
 
@@ -436,9 +455,9 @@ The `*` suffix + confidence note signals that manual double-checking may be warr
 
 **Readiness scores are not security verdicts.** A Mode 6 readiness score (e.g. 95 "Audit Ready") says nothing about exploitability and never appears as a security conclusion.
 
-**Run status (report header).** One of `completed`, `build-blocked`, `tooling-blocked`, `policy-interfered` (a worker refused, truncated or stopped silently — report the coverage reached and never present a partial pass as complete). Never write "clean"; say what was examined and what was not. Record each verification lane separately (source review, compilation, PoC harness, Miri, fuzzing: `passed | partial | blocked | failed | skipped`, with a reason and a resume command for blocked lanes). An empty result from a `partial`/`blocked` lane is weak evidence; a fuzz campaign with no findings proves nothing about classes the harness cannot observe and never downgrades a finding.
+**Run status (report header).** One of `completed`, `build-blocked`, `tooling-blocked`, `policy-interfered` (a worker refused, truncated or stopped silently — report the coverage reached and never present a partial pass as complete), `target-absent` (the path given does not exist or is empty) or `no-in-scope-code` (the path exists but holds no on-chain program). For the last two, write no findings and state: "No code was audited; this is not a statement that anything is safe", what was looked for, and how to resume. Never write "clean"; say what was examined and what was not. Record each verification lane separately (source review, compilation, PoC harness, Miri, fuzzing: `passed | partial | blocked | failed | skipped`, with a reason and a resume command for blocked lanes). An empty result from a `partial`/`blocked` lane is weak evidence; a fuzz campaign with no findings proves nothing about classes the harness cannot observe and never downgrades a finding.
 
-*Sources: sanbir/solana-auditor-skills, pashov/skills (MIT, Copyright (c) 2024 AI Skills Contributors); workersio/skills §5 (MIT, Copyright (c) 2026 workers.io); CDSecurity/cdsecurity-skills (MIT, Copyright (c) 2026 CD Security); qedgen/solana-skills E3/E4 (MIT, Copyright (c) 2025 QEDGen); awesome-solana-ai (CC0, cited as discovery only); merged and adapted. Score weights unified across the three sources.*
+*Sources: sanbir/solana-auditor-skills `solana-auditor/references/judging.md`, pashov/skills `solidity-auditor/references/judging.md` (MIT, Copyright (c) 2024 AI Skills Contributors); workersio/skills `plugins/solana-audit/skills/solana-audit/references/scoring.md`, PR #9 tree (MIT, Copyright (c) 2026 workers.io); CDSecurity/cdsecurity-skills `rust-audit-prep/references/checklist.md` (MIT, Copyright (c) 2026 CD Security); qedgen/solana-skills `skills/qedgen-auditor/SKILL.md` engine runs and run status (MIT, Copyright (c) 2025 QEDGen); awesome-solana-ai (CC0, cited as discovery only); merged and adapted. Score weights unified across the three sources.*
 
 ### `[UNCONFIRMED]` / `[UNDETERMINED]` — validation-gate outcomes
 
@@ -456,6 +475,13 @@ An audit handles hostile material: code that may get built or run, git metadata 
 
 **Any `cargo`, `rustc` or `anchor` command started inside the tree is target execution, read-only ones included:** `cargo --version` and `rustc --version` run a `path` toolchain, `cargo tree` and `cargo metadata` run a `rustc-wrapper`, an `[alias]` can stand in for `cargo audit` or `cargo build-sbf`, and under `avm` even `anchor --version` runs the Anchor release the tree's `Anchor.toml` `[toolchain]` names. Start version probes and dependency queries from a scratch directory outside the tree (e.g. `mktemp -d`) with `RUSTUP_TOOLCHAIN` pinned to the auditor's own toolchain — cargo looks for config from its working directory, not from `--manifest-path` — and run `npm audit` / `cargo audit` there on a copy of the manifest and lockfile; a command that compiles the target (`cargo build` / `check` / `clippy` / `test`, `anchor build`) runs its build scripts and proc-macros wherever it starts, so it runs in the recorded mode.
 
+**Reading a dependency's source.** To learn what a pinned crate does (an instruction builder's program-id check, a framework constraint, a helper's validation), read the exact version that `Cargo.lock` resolves, without building anything:
+1. Take the crate name, version and `checksum` from the target's `Cargo.lock`, read as a text file.
+2. If the auditor's own cargo cache already holds that exact version (`~/.cargo/registry/src/*/<name>-<version>/`), read it there. Reading files runs nothing. A different version in the cache is `[EXT-UNV]` evidence for the pinned one.
+3. Otherwise, when outside fetches are allowed, download `https://static.crates.io/crates/<name>/<name>-<version>.crate` into a new, empty directory outside the target tree. Check its SHA-256 against the `Cargo.lock` checksum, unpack it there with `tar -xzf`, and read it. Never run `cargo` or a build in that directory. List crates.io and the crate names under 11b.
+4. The upstream repository at the release tag is an alternative, read through 11c's safe git forms.
+5. When none of these is possible, tag the evidence `[EXT-UNV]` and rely only on a version range that an FP entry states (Rule 5b → Evidence sources).
+
 **Two modes.** The mode is chosen once per audit, at intake (`QUESTIONS.md` Q46, recorded in `audit_<n>/intake.md` §8):
 
 | Mode | What it means | The report says |
@@ -465,7 +491,7 @@ An audit handles hostile material: code that may get built or run, git metadata 
 
 Interactive runs ask once per audit — at intake, or at the first step that needs to execute target code or build a PoC if intake was skipped. Autonomous runs (the `intake` playbook (commands/intake.md) with `--auto`, the `audit-cycle` playbook (commands/audit-cycle.md)) use the recorded mode; when none was recorded, the run is native and the report carries that caveat.
 
-**Where it applies.** FULL-AUDIT Step 3.4 (`anchor build`, `anchor test`); SC-012's `npm ci` (add `--ignore-scripts`); the scratch-worktree rebuild in the `patch` playbook (commands/patch.md); the `re-audit` playbook (commands/re-audit.md) step 4b (the target's test suite); mutation runs; Trail of Bits harnesses (when installed separately) that build target code; and every PoC build. Step 3.2's registry commands run on copies outside the tree, as above. A PoC build runs the build scripts and proc-macros of the crate's dependencies and then its tests, and the crate can carry target code or crates taken from the target's manifest, so `templates/poc/run.sh` builds a PoC only when the caller passes the recorded mode as `AUDITOR_EXEC_MODE=isolated|native` — with no recorded mode, an interactive run asks once and an autonomous run passes `native`, and the report says so. Otherwise `run.sh` exits 3 before it compiles anything, and the PoC is `[PoC-ATTEMPTED]`. `run.sh` also builds from a scratch copy outside the target tree with a pinned toolchain, so the target's `.cargo/config*` and `rust-toolchain*` are never read: a second layer under the mode, not an exemption from it.
+**Where it applies.** FULL-AUDIT Step 3.4 (`anchor build`, `anchor test`); the scratch-worktree rebuild in the `patch` playbook (commands/patch.md); the `re-audit` playbook (commands/re-audit.md) step 4b (the target's test suite); mutation runs; Trail of Bits harnesses (when installed separately) that build target code; and every PoC build. Step 3.2's registry commands run on copies outside the tree, as above. A PoC build runs the build scripts and proc-macros of the crate's dependencies and then its tests, and the crate can carry target code or crates taken from the target's manifest, so `templates/poc/run.sh` builds a PoC only when the caller passes the recorded mode as `AUDITOR_EXEC_MODE=isolated|native` — with no recorded mode, an interactive run asks once and an autonomous run passes `native`, and the report says so. Otherwise `run.sh` exits 3 before it compiles anything, and the PoC is `[PoC-ATTEMPTED]`. `run.sh` also builds from a scratch copy outside the target tree with a pinned toolchain, so the target's `.cargo/config*` and `rust-toolchain*` are never read: a second layer under the mode, not an exemption from it.
 
 **When a step cannot run in the chosen mode.** Never switch modes silently. A PoC records `[PoC-ATTEMPTED]` with the blocker "no isolated runner" (Rule 5b tiers); a patch records `[FIX-PROPOSED]`; a checklist item keeps its source-level verdict with a Rule 10 confidence note (e.g. `[PASS*] … *confidence: medium — test suite not executed, no isolated runner`).
 
@@ -517,4 +543,4 @@ Before any `anchor` invocation, read `Anchor.toml` for the following (Anchor ≥
 - `[surfpool]`. `anchor test` and `anchor localnet` start Surfpool by default, and a `datasource_rpc_url` there makes the local validator fetch state from that RPC. List it as an outside service under 11b.
 <!-- verified: anchor v1.0.0 cli/src/config.rs (`HooksConfig`, `run_hooks` → `Command::new("bash").arg("-c")`; `_SurfpoolConfig.datasource_rpc_url`; `ValidatorType::Surfpool` default); CHANGELOG v1.0.0 #3862 (hooks), #4106 (surfpool default); absent in v0.32.1 cli/src/config.rs -->
 
-*Sources: crytic/solana-lints [paraphrased, no licence, https://github.com/crytic/solana-lints]; solana-foundation/solana-dev-skill tooling notes (MIT, Copyright (c) 2026), adapted. The Anchor.toml facts were checked against solana-foundation/anchor v1.0.0 (Apache-2.0).*
+*Sources: crytic/solana-lints [paraphrased, no licence, https://github.com/crytic/solana-lints]; solana-foundation/solana-dev-skill `skills/solana-dev/SKILL.md`, `skills/solana-dev/references/testing.md` and `skills/solana-dev/references/anchor/migrating-v0.32-to-v1.md` tooling notes (MIT, Copyright (c) 2026), adapted. The Anchor.toml facts were checked against solana-foundation/anchor v1.0.0 (Apache-2.0).*

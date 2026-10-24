@@ -43,4 +43,4 @@ pub router: Program<'info>,                       // or Program<'info, Jupiter> 
 - ✅: no executable-only program account steers a CPI
 - ❌: one does, with signer privilege or value at stake
 
-*Sources: otter-sec/anchor GHSA-c6rc-8jpp-2fgc, `lang/src/accounts/program.rs`, `lang/src/system_program.rs` (Apache-2.0, Copyright 2020 Anchor Maintainers), exposure narrowed; solana-foundation/solana-dev-skill #4a (MIT, Copyright (c) 2026).*
+*Sources: otter-sec/anchor GHSA-c6rc-8jpp-2fgc, `lang/src/accounts/program.rs`, `lang/src/system_program.rs` (Apache-2.0, Copyright 2020 Anchor Maintainers), exposure narrowed; solana-foundation/solana-dev-skill `skills/solana-dev/references/anchor/migrating-v0.32-to-v1.md` (generic `Program<'info>`) (MIT, Copyright (c) 2026).*

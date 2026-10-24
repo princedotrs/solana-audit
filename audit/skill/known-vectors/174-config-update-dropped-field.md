@@ -32,4 +32,4 @@ cfg.fee_bps = fee_bps; cfg.admin = admin; cfg.max_cap = max_cap; cfg.whitelist =
 
 **Overall verdict:** ✅ every field applied · ❌ any field silently dropped
 
-*Sources: sanbir/solana-auditor-skills B2 (MIT, Copyright (c) 2024 AI Skills Contributors).*
+*Sources: sanbir/solana-auditor-skills `solana-auditor/references/attack-vectors/attack-vectors-1.md` V25 (MIT, Copyright (c) 2024 AI Skills Contributors).*

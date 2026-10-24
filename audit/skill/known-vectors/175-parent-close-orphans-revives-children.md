@@ -39,4 +39,4 @@ distribution.state = DistState::Closed;    // terminal; every handler rejects Cl
 
 **Overall verdict:** ✅ no orphan or revival path · ❌ either exists
 
-*Sources: sanbir/solana-auditor-skills B5 (MIT, Copyright (c) 2024 AI Skills Contributors); qedgen/solana-skills parent-close revival pattern (MIT, Copyright (c) 2025 QEDGen); incident checked against the merged diff of https://github.com/solana-program/rewards/pull/32 (the advisory id is omitted because the PR does not state it).*
+*Sources: sanbir/solana-auditor-skills `solana-auditor/references/attack-vectors/attack-vectors-5.md` V103 (MIT, Copyright (c) 2024 AI Skills Contributors); qedgen/solana-skills `skills/qedgen-auditor/references/category-catalog.md` `pda_lifecycle_reuse_after_close` (MIT, Copyright (c) 2025 QEDGen); incident checked against the merged diff of https://github.com/solana-program/rewards/pull/32 (the advisory id is omitted because the PR does not state it).*

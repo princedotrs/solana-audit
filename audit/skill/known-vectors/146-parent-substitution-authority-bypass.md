@@ -47,4 +47,4 @@ pub struct UpdateReserveConfig<'info> {
 - ✅: every privileged mutation is anchored to a trusted root
 - ❌: any privileged instruction accepts an attacker-created parent
 
-*Sources: sannykim/solsec → Solend incident report and reconstruction [paraphrased, cited: https://docs.google.com/document/d/1-WoQwT1QrPEX-r4N-fDamRQ50LM8DsdsOyq1iTabS3Q , https://hackmd.io/54qwl3oeT4CYuREUgxQ2zQ]; qedgen/solana-skills P2 root-anchor rule (MIT, Copyright (c) 2025 QEDGen).*
+*Sources: sannykim/solsec → Solend incident report and reconstruction [paraphrased, cited: https://docs.google.com/document/d/1-WoQwT1QrPEX-r4N-fDamRQ50LM8DsdsOyq1iTabS3Q , https://hackmd.io/54qwl3oeT4CYuREUgxQ2zQ]; qedgen/solana-skills `skills/qedgen-auditor/references/category-catalog.md` `field_chain_missing_root_anchor` (MIT, Copyright (c) 2025 QEDGen).*

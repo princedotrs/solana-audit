@@ -106,7 +106,3 @@ Discovery source: solana-foundation/awesome-solana-ai (CC0 directory, not an end
 | Exo AI Audits | closed SaaS | benchmark only |
 | Sentinel Code | open | **rejected** — its signer rule flags the correct `if !acct.is_signer` check, and its owner/CPI rules fire on every `AccountInfo`/`invoke` |
 A docs oracle (Solana Developer MCP) may answer "what does constraint X do in version Y"; pin the answer to the `Cargo.lock` version and confirm in the framework source.
-
-## 10. Evaluating this skill: labelled fixtures
-
-`templates/evals/sealevel-attacks-labels.json` labels `coral-xyz/sealevel-attacks` variants: recall gate (report the class on every vulnerable variant), precision gate (nothing on safe variants except declared, reasoned cross-class findings that must keep appearing). Falsify the harness before trusting a green run (no-op a checklist item → recall must drop; fire everywhere → precision must fail). Public judged contests (Code4rena, Sherlock, Cantina, CodeHawks First Flights) serve as calibration: missed Highs point to checklist gaps; invalidated reports point to false-positive gaps. Re-verify judged counts before relying on them.

@@ -50,4 +50,4 @@ Report wording: describe the whole chain (unchecked account → constraint inher
 - ✅: every constraint key is pinned
 - ❌: any constraint inherits trust from an unpinned key on a value-moving or privileged path
 
-*Sources: Ackee bootcamp item 3 [paraphrased, cited]; Solana Foundation Program Security course U4 [paraphrased, no licence, https://github.com/solana-foundation/developer-content/tree/main/content/courses/program-security].*
+*Sources: Ackee-Blockchain Solana-Auditors-Bootcamp `Capture-the-Flag/level-5` [paraphrased, cited: https://github.com/Ackee-Blockchain/Solana-Auditors-Bootcamp/tree/master/Capture-the-Flag/level-5]; Solana Foundation Program Security course `arbitrary-cpi.md` (`seeds::program`) [paraphrased, no licence, https://github.com/solana-foundation/developer-content/tree/main/content/courses/program-security].*

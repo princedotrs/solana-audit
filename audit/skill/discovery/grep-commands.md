@@ -3,7 +3,7 @@
 > Consolidated command library for this skill (Solana on-chain programs: Anchor / native `solana-program` / Pinocchio).  
 > Commands are written as `grep_search` (code search) and `run_in_terminal` (shell) calls — map them to whatever search and terminal tools the agent has.  
 > Commands are grouped by **what they detect**.  
-> Off-chain code (TypeScript / Python / Go clients, backends, frontends, CI workflows, off-chain Rust services) is out of scope for this skill — locate it only to list it as excluded in Scope Coverage (see [Scope Boundary](#scope-boundary--off-chain-code)).
+> Off-chain code (TypeScript / Python / Go clients, backends, frontends, off-chain Rust services) is out of scope for this skill — locate it only to list it as excluded in Scope Coverage (see [Scope Boundary](#scope-boundary--off-chain-code)). Deploy / admin scripts and CI jobs that hold program, upgrade-authority or admin keys stay in scope for checklists 07, 11 and 12.
 
 ---
 
@@ -16,8 +16,8 @@
 | [CPI & PDA](#cpi--pda-rust) | CPI targets, invoke vs invoke_signed, seeds |
 | [Access Control](#access-control-rust) | Signer mapping, has_one, key checks |
 | [State Machine](#state-machine-rust) | Status transitions, events, account closures |
-| [Secrets & Keys](#secrets--keys) | Hardcoded keys, env leaks, committed secrets |
-| [Supply Chain](#supply-chain) | Compromised packages, audit, publish dates |
+| [Secrets & Keys](#secrets--keys) | Hardcoded keys, committed keypairs (incl. program keypairs), CI deploy keys |
+| [Supply Chain](#supply-chain) | Cargo advisories, crate publish dates and sources, hijacked key-handling JS in deploy tooling |
 | [Infrastructure](#infrastructure) | Build, deploy, upgrade authority, emergency controls |
 | [Formal Verification & Testing](#formal-verification--testing-checklist-16) | Fuzz testing, coverage, static analysis, invariants |
 | [Token, Sysvar & Modern On-Chain](#token-sysvar--modern-on-chain-kv-101109-kv-135) | Token-2022, ATA, decimals, sysvars, precompiles, ALTs, bumps, revival, Pinocchio, transaction v1 |
@@ -183,7 +183,7 @@ grep_search: "close ="   includePattern: "programs/**/*.rs"
 
 ## Secrets & Keys
 
-> Checklist 12 is always-on: secrets in deploy scripts, test harnesses and config files that ship with the program repo are in scope even where the surrounding language is not.
+> Checklist 12 is always-on: program keypairs and the upgrade / admin / deploy keys held in deploy scripts, test harnesses, config files and CI that ship with the program repo are in scope even where the surrounding language is not. Off-chain application secrets (frontend RPC / API keys, database credentials) are not.
 
 ### Hardcoded secrets in code
 ```
@@ -192,21 +192,11 @@ grep_search: "private_key|secret_key|mnemonic|seed_phrase"   isRegexp: true   in
 grep_search: "-----BEGIN"   includePattern: "**/*"
 ```
 
-### API keys in code
+### Base58 secret keys (SEC-005)
 ```
-grep_search: "api_key|apiKey|api-key"   isRegexp: true   includePattern: "**/*.ts"
+grep_search: "[1-9A-HJ-NP-Za-km-z]{86,88}"   isRegexp: true   includePattern: "**/*"
 ```
-
-### Env var usage
-```
-grep_search: "process.env"   includePattern: "**/*.ts"
-```
-
-### NEXT_PUBLIC_ exposure (SEC-014 / SEC-015)
-```
-grep_search: "NEXT_PUBLIC_"   includePattern: "apps/web/**/*.ts"
-grep_search: "NEXT_PUBLIC_"   includePattern: "apps/web/**/*.tsx"
-```
+> A 64-byte keypair encodes to 86–88 base58 characters; 32–44-character strings are public keys.
 
 ### Committed env/key files
 ```bash
@@ -215,7 +205,16 @@ GIT_NO_LAZY_FETCH=1 git --no-pager -c core.fsmonitor=false -c log.showSignature=
   ls-files | grep -iE "\.env|keypair|delegate\.json|\.pem|\.key"
 find . -name "*.env*" -not -path "./node_modules/*" -not -path "./.git/*"
 find . -name "*keypair*" -not -path "./node_modules/*" -not -path "./.git/*"
+# committed program keypairs (SEC-019): target/deploy/<program>-keypair.json
+GIT_NO_LAZY_FETCH=1 git --no-pager -c core.fsmonitor=false -c log.showSignature=false \
+  ls-files -- 'target/deploy/*'
 ```
+
+### CI that holds deploy or authority keys (SEC-045, SEC-046, OPS-064, OPS-067)
+```
+grep_search: "solana program (deploy|upgrade|set-upgrade-authority|write-buffer)|anchor (deploy|upgrade)|id\\.json|KEYPAIR|PRIVATE_KEY"   isRegexp: true   includePattern: ".github/**/*.{yml,yaml}"
+```
+> Record which jobs sign, where the key comes from (secret store, KMS, a keypair file), which branches / environments can run them, and whether fork PRs can reach the secret.
 
 ### Git history secrets
 ```bash
@@ -234,17 +233,18 @@ GIT_NO_LAZY_FETCH=1 git --no-pager -c core.fsmonitor=false -c log.showSignature=
 
 ## Supply Chain
 
-> Every package-manager or cargo command in this section reads the target's `.npmrc`, `.cargo/config*` and `rust-toolchain*` when started inside its tree. Run them from a scratch dir OUTSIDE the target tree, on copies of the manifest + lockfile with the toolchain pinned (OUTPUT-RULES Rule 11a; FULL-AUDIT Step 3.2).
+> Every cargo or package-manager command in this section reads the target's `.cargo/config*` and `rust-toolchain*` (and `.npmrc` for npm) when started inside its tree. Run them from a scratch dir OUTSIDE the target tree, on copies of the manifest + lockfile with the toolchain pinned (OUTPUT-RULES Rule 11a; FULL-AUDIT Step 3.2).
 
-### Check for compromised packages
+### Crate advisories (SC-004)
 ```bash
-# Terminal:
-grep -E "axios.*1\.14\.1|axios.*0\.30\.4" package-lock.json
-# from a scratch dir OUTSIDE the target tree holding copies of package.json + the lockfile (OUTPUT-RULES Rule 11a)
-npm audit
+# Terminal, from a scratch dir OUTSIDE the target tree holding a copy of Cargo.lock, toolchain pinned
+# (OUTPUT-RULES Rule 11a; full outcome handling in FULL-AUDIT Step 3.2):
+cargo audit --color never
+cargo deny check advisories bans sources   # if a deny.toml is supplied by the auditor (SC-063, SC-067)
 ```
 
-### Hijacked `@solana/web3.js` releases (SC-005)
+### Hijacked `@solana/web3.js` releases in key-loading tooling (SC-005)
+> Applies to deploy / migration / admin tooling that loads a program, upgrade-authority or admin keypair.
 ```bash
 # Terminal: exact pins and resolved versions in package-lock / pnpm / yarn v1 + berry / bun;
 # ranges such as "^1.95.7" do not match on their own:
@@ -258,23 +258,21 @@ GIT_NO_LAZY_FETCH=1 git --no-pager -c core.fsmonitor=false -c log.showSignature=
 ```
 > PASS: zero matches in the tree, and either zero matches in history or evidence that every key a build from that window loaded was rotated. FAIL: compromised version in the tree — CRITICAL; or a 1.95.6 / 1.95.7 hit in history with no evidence of rotation — every key a build containing it loaded is exposed. A `fatal:` or `lazy fetching disabled` line means a partial clone (OUTPUT-RULES Rule 11c): the history search did not run, so it is never a PASS.
 
-### Package publish dates (14-day quarantine)
+### Crate publish dates (14-day quarantine, SC-010)
 ```bash
-# Terminal: Check publish date for critical packages
-npm info @anchor-lang/core time --json | tail -5
+# Terminal: crates.io API (an outside service, OUTPUT-RULES Rule 11b), per recently bumped crate in Cargo.lock
+curl -s "https://crates.io/api/v1/crates/<crate>/<version>" | grep -o '"created_at":"[^"]*"'
 ```
 
-### Outdated packages
+### Lockfile sources (SC-043)
 ```bash
-# Terminal:
-npm outdated
+grep -n '^source = ' Cargo.lock | grep -v 'registry+https://github.com/rust-lang/crates.io-index\|sparse+https://index.crates.io/'
+```
+
+### Outdated crates (SC-018)
+```bash
+# Terminal, scratch copy outside the tree (Rule 11a):
 cargo outdated  # if cargo-outdated installed
-```
-
-### License check
-```bash
-# Terminal:
-npx license-checker --summary
 ```
 
 ---
@@ -324,8 +322,8 @@ Copy-paste terminal commands into a system terminal.
 ### Batch Execution
 When running a FULL audit (see FULL-AUDIT.md), execute commands per phase:
 - Phase 1 (On-chain): Account Safety + Arithmetic + CPI/PDA + Access Control + State Machine + Token, Sysvar & Modern On-Chain
-- Phase 2 (DevOps): Secrets + Supply Chain + Infrastructure
-- Phase 3 (Verification): Formal Verification & Testing
+- Phase 3 (OpSec, supply chain, secrets): Secrets + Supply Chain + Infrastructure
+- Phase 4 (Verification): Formal Verification & Testing
 - Scope Boundary: run once at intake to list excluded off-chain code
 
 ---
@@ -339,12 +337,12 @@ grep_search: "proptest|quickcheck|fast-check|hypothesis|fuzzing|fuzz_target"   i
 
 ### Static analysis config
 ```
-grep_search: "clippy|eslint|semgrep|slither|mythril"   isRegexp: true   includePattern: "**/*"
+grep_search: "clippy|semgrep|cargo-audit|cargo-deny|cargo-geiger"   isRegexp: true   includePattern: "**/*"
 ```
 
 ### Coverage tooling
 ```
-grep_search: "coverage|lcov|tarpaulin|istanbul|c8|nyc"   isRegexp: true   includePattern: "**/*"
+grep_search: "coverage|lcov|tarpaulin|llvm-cov"   isRegexp: true   includePattern: "**/*"
 ```
 
 ### Test quality indicators
@@ -358,14 +356,9 @@ grep_search: ".unwrap()"   includePattern: "programs/**/*.rs"
 grep_search: ".expect("    includePattern: "programs/**/*.rs"
 ```
 
-### Suppressed type checking
+### Suppressed lints
 ```
-grep_search: "@ts-ignore|@ts-nocheck|#\\[allow\\(clippy"   isRegexp: true   includePattern: "**/*"
-```
-
-### Swallowed errors
-```
-grep_search: "catch {}|catch(e) {}|catch (_) {}"   isRegexp: true   includePattern: "**/*.ts"
+grep_search: "#\\[allow\\(clippy"   isRegexp: true   includePattern: "programs/**/*.rs"
 ```
 
 ### Documented invariants
@@ -441,10 +434,9 @@ grep_search: "unsafe|get_unchecked|from_raw_parts|\\.add\\(|unsafe-account-resiz
 ### Transaction v1 readiness (KV-135)
 ```
 grep_search: "load_instruction_at|get_instruction_relative"   isRegexp: true   includePattern: "programs/**/*.rs"
-grep_search: "ComputeBudget|SetComputeUnitPrice|computeUnitPrice|micro.?lamports"   isRegexp: true   includePattern: "**/*.{ts,rs,py,go}"
-grep_search: "feePayer|fee_payer|sponsor|paymaster|gasless|partialSign"   isRegexp: true   includePattern: "apps/**/*.{ts,rs,py}"
+grep_search: "ComputeBudget|SetComputeUnitPrice|SetComputeUnitLimit|RequestHeapFrame"   isRegexp: true   includePattern: "programs/**/*.rs"
 ```
-> Every program introspection must not gate on ComputeBudget instructions; every ComputeBudget scan must have a v1 `transactionConfig` branch; every fee-payer service must detect version on the raw bytes (`0x81`) before its cap. See `references/vuln-classes/transaction-v1.md`.
+> No on-chain gate may depend on ComputeBudget instructions read from the Instructions sysvar: in a v1 transaction they execute as no-ops and set nothing, so a priority-fee or CU floor is silently disabled (or v1 users are rejected). Introspection loops must also stay within the ≤ 64-instruction cap. See `references/vuln-classes/transaction-v1.md` (V5).
 
 ---
 
@@ -505,7 +497,7 @@ rg -n 'TODO|FIXME|HACK|XXX' programs/*/src
 rg -n '^\s*//\s*(require!|require_keys_eq!|assert|if |constraint|has_one|checked_)' programs/*/src
 ```
 <!-- verified: anchor v0.31.1 lang/syn/src/codegen/program/dispatch.rs + handlers.rs (#[cfg(not(feature = "no-idl"))]), v1.1.0 lang/syn/src/lib.rs (legacy_idl program arg), v0.32.1 vs v1.0.0 lang/src/accounts/program.rs (Program<'info, T = ()> from 1.0.0), v0.29.0 lang/src/lib.rs (fn sub_lamports; absent in v0.28.0), v1.0.0 lang/src/accounts/account.rs (try_from_unchecked); pinocchio@v0.9.2 sdk/pinocchio/src/account_info.rs (borrow_*_unchecked, close, close_unchecked, resize_unchecked) and cpi.rs (invoke_unchecked, invoke_signed_unchecked); solana-account-view 1.0.0 (pinocchio 0.10.x: set_lamports, borrow_unchecked(_mut), close_unchecked); pinocchio-token@v0.4.0 from_account_info_unchecked vs @v0.5.0/@v0.7.0 from_account_view_unchecked; solana-account-view 1.0.0 AccountView::address(); solana-instruction-view 1.0.0 InstructionView.program_id and invoke(_signed)_unchecked ("does not perform any validation", pinocchio@v0.9.2 cpi.rs doc); anchor v1.0.0/v1.0.1 is_unit_type removed in v1.0.2; legacy IDL: v1.0.0-v1.0.3 none (#3798), v1.1.0-v1.2.1 legacy_idl, v2.0.0-rc.1/rc.2 none (separate branch); untyped Program present in v1.0.0-rc.3, absent in v0.32.2. AC-059 treats hard-coded admin-key comparisons as authority checks. Every pattern was test-run with rg on a synthetic sample. -->
-*Sources: Sealevel Sentinel (MIT, Copyright (c) 2026 Stan (stantheman0128)) with corrected close regex and sysvar list; crytic/solana-lints and Trail of Bits not-so-smart-contracts [paraphrased, cited]; CDSecurity/cdsecurity-skills (MIT, Copyright (c) 2026 CD Security); otter-sec/anchor (Apache-2.0, Copyright 2020 Anchor Maintainers). Patterns were rewritten and extended.*
+*Sources: Sealevel Sentinel (stantheman0128/sealevel-sentinel) `src/detectors/closing-accounts.ts`, `src/detectors/sysvar-address.ts` and `src/detectors/missing-signer.ts` (MIT, Copyright (c) 2026 Stan (stantheman0128)) with corrected close regex and sysvar list; crytic/solana-lints and Trail of Bits not-so-smart-contracts [paraphrased, cited]; CDSecurity/cdsecurity-skills `rust-audit-prep/references/checklist.md` (MIT, Copyright (c) 2026 CD Security); otter-sec/anchor (Apache-2.0, Copyright 2020 Anchor Maintainers). Patterns were rewritten and extended.*
 
 ---
 
@@ -516,4 +508,4 @@ rg -n '^\s*//\s*(require!|require_keys_eq!|assert|if |constraint|has_one|checked
 find . -name "*.rs" -not -path "./programs/*" -not -path "./target/*" -not -path "*/node_modules/*"
 grep -rnE "geyser|GeyserPlugin|yellowstone|carbon|substreams|indexer|keeper|liquidator|crank|bot" --include="*.rs" -l . | grep -v "/programs/"
 ```
-> Any `.rs` outside `programs/` (and any TypeScript / Python / Go client, backend, frontend or CI workflow) is off-chain code with a different threat model (network input, RPC trust, long-lived keys) and is out of scope for this skill. List it as excluded in Scope Coverage; do not route it through the on-chain checklists. Secrets it holds are still in scope for checklist 12, and its manifests and lockfiles for checklist 11.
+> Any `.rs` outside `programs/` (and any TypeScript / Python / Go client, backend or frontend) is off-chain code with a different threat model (network input, RPC trust, long-lived keys) and is out of scope for this skill. List it as excluded in Scope Coverage; do not route it through the on-chain checklists. Program, upgrade-authority and admin keys it holds stay in scope for checklist 12, deploy / admin tooling that loads them for checklist 11 (SC-005, SC-045, SC-062), and CI jobs that deploy or sign admin transactions for checklists 07 and 12.

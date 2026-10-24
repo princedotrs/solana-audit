@@ -250,7 +250,7 @@ Blocks: PDA map, authority matrix, token transfer tests.
 
 <!-- verified: example text identical to beriktassuly/solana-audit-skill skill/references/workflows/pre-audit-design-review.md L59-63 (MIT, "Copyright (c) 2026 Berektassuly"); the question order is limited to on-chain scope. -->
 
-*Sources: qedgen/solana-skills Part D (MIT, Copyright (c) 2025 QEDGen), rewritten; beriktassuly/solana-audit-skill `skill/references/workflows/pre-audit-design-review.md` (MIT, Copyright (c) 2026 Berektassuly) — example verbatim, question order adapted to on-chain scope.*
+*Sources: qedgen/solana-skills `skills/qedgen-auditor/references/domain-invariant-extraction.md` domain dossier (MIT, Copyright (c) 2025 QEDGen), rewritten; beriktassuly/solana-audit-skill `skill/references/workflows/pre-audit-design-review.md` (MIT, Copyright (c) 2026 Berektassuly) — example verbatim, question order adapted to on-chain scope.*
 
 ---
 

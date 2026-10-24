@@ -1,21 +1,14 @@
 {
   "_source": "coral-xyz/sealevel-attacks @ 24555d0 (no licence; labels only, no code copied) — https://github.com/coral-xyz/sealevel-attacks/tree/master/programs",
   "_method": "Recall: report the class on every vulnerable variant. Precision: nothing on safe variants except declared crossClass entries, which must keep appearing (printed with their reason every run).",
+  "_verified": "sealevel-attacks HEAD 24555d0 programs/{1-account-data-matching,4-initialization,6-duplicate-mutable-accounts,8-pda-sharing}/secure|insecure/src/lib.rs; 5-arbitrary-cpi/insecure/Cargo.toml spl-token 3.1.1 (lock 3.2.0) — builder check added by SPL #1714 (commit 38751ab, 2021-05-12), first released in spl-token 3.1.1 (bump commit 7e95bf7, 2021-05-17), token program@v3.5.0 program/src/instruction.rs L967 + lib.rs L82; 9-closing-accounts/*/Cargo.toml anchor-lang 0.20.1; 4-initialization/secure/src/lib.rs guard `if !user.discriminator { return Err(..) }` (inverted polarity). Moved here from security.md and KV-014 so no audit read path carries fixture verdicts.",
+  "_isolation": "Maintainers only. No audit mode reads this folder; scripts/check-eval-isolation.sh fails if an audit-path file names it or a fixture variant path.",
   "0-signer-authorization": { "vulnerable": ["insecure"], "safe": ["secure", "recommended"] },
-  "1-account-data-matching": {
-    "vulnerable": ["insecure"], "safe": ["secure", "recommended"],
-    "crossClass": { "secure": { "owner-check": "1/secure equals 2-owner-checks/insecure modulo one import, the module name and a log typo; it never checks the token account's program owner" } }
-  },
+  "1-account-data-matching": { "vulnerable": ["insecure"], "safe": ["secure", "recommended"], "crossClass": { "secure": { "owner-check": "1/secure equals 2-owner-checks/insecure modulo one import, the module name and a log typo; it never checks the token account's program owner" } } },
   "2-owner-checks": { "vulnerable": ["insecure"], "safe": ["secure", "recommended"] },
   "3-type-cosplay": { "vulnerable": ["insecure"], "safe": ["secure", "recommended"] },
-  "4-initialization": {
-    "vulnerable": ["insecure", "secure"], "safe": ["recommended"],
-    "note": "the 'secure' variant errors when the flag is unset — it blocks the first init and permits re-init (inverted polarity, KV-014), so it is labelled vulnerable"
-  },
-  "5-arbitrary-cpi": {
-    "vulnerable": [], "safe": ["secure", "recommended"],
-    "note": "insecure builds the instruction with spl_token::instruction::transfer, whose check_program_account gate returns IncorrectProgramId for any id other than spl_token::ID (verified in spl-token 3.5.0; the fixture's Cargo.lock resolves spl-token 3.2.0, so confirm the gate there before relying on this label) — FP-7; score it as hygiene, not arbitrary CPI"
-  },
+  "4-initialization": { "vulnerable": ["insecure", "secure"], "safe": ["recommended"], "note": "the 'secure' variant errors when the flag is unset — it blocks the first init and permits re-init (inverted polarity, KV-014), so it is labelled vulnerable" },
+  "5-arbitrary-cpi": { "vulnerable": [], "safe": ["secure", "recommended"], "note": "insecure builds the instruction with spl_token::instruction::transfer, whose check_program_account gate returns IncorrectProgramId for any id other than spl_token::ID (verified in spl-token 3.5.0; the fixture's Cargo.lock resolves spl-token 3.2.0, so confirm the gate there before relying on this label) — FP-7; score it as hygiene, not arbitrary CPI" },
   "6-duplicate-mutable-accounts": { "vulnerable": ["insecure"], "safe": ["secure", "recommended"], "note": "the example omits `mut`; illustrative" },
   "7-bump-seed-canonicalization": { "vulnerable": ["insecure"], "safe": ["secure", "recommended"] },
   "8-pda-sharing": { "vulnerable": ["insecure"], "safe": ["secure", "recommended"], "note": "the fixture's transfer authority is the `authority` Signer, not the pool PDA; illustrative" },

@@ -198,7 +198,7 @@ Each worksheet lists the safe shape. FAIL if any line is missing on any reachabl
   (priority fees, bundles). A panicking `assert!` bound protects as well as `require!`; it only gives
   a worse error. Alternative PASS: changes take effect after a delay (KV-028, ECON-102).
 
-*Sources: Helius "A Hitchhiker's Guide to Solana Program Security" §3 [paraphrased, © Helius, cited: https://www.helius.dev/blog/a-hitchhikers-guide-to-solana-program-security], assert! claim corrected.*
+*Sources: Helius "A Hitchhiker's Guide to Solana Program Security", "Frontrunning" section [paraphrased, © Helius, cited: https://www.helius.dev/blog/a-hitchhikers-guide-to-solana-program-security], assert! claim corrected.*
 
 ---
 

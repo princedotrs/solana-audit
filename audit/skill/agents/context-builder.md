@@ -31,4 +31,4 @@ Output the instruction matrix, state model, and worksheets to `audit_<n>/workshe
 | Hidden inputs | `remaining_accounts`; account order; duplicate keys; Instructions sysvar; `get_processed_sibling_instruction`; Clock; Rent; compute budget; ALT-resolved accounts; return data |
 | Opaque callees | CPI targets outside the audit scope (aggregators, oracles, Token-2022 transfer hooks, caller-supplied programs): treat as adversarial |
 
-*Sources: Trail of Bits `audit-context-building` per-domain table [paraphrased, CC-BY-SA-4.0, https://github.com/trailofbits/skills]; row labels reworded and the Solana column is our own.*
+*Sources: Trail of Bits `plugins/audit-context-building/skills/audit-context-building/SKILL.md` per-domain table [paraphrased, CC-BY-SA-4.0, https://github.com/trailofbits/skills]; row labels reworded and the Solana column is our own.*

@@ -1,4 +1,4 @@
-// P1 Conservation. Adapted from the qedgen/solana-skills `kani-examples.md` minimal pattern
+// P1 Conservation. Adapted from the qedgen/solana-skills `references/kani-examples.md` minimal pattern
 // (MIT, Copyright (c) 2025 QEDGen). It is hardened per FV-074/FV-075: the minimal pattern's
 // `if result.is_ok() { assert_eq!(..) }` passes vacuously when deposit always errors.
 #[cfg(kani)]

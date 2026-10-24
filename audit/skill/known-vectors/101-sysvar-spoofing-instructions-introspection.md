@@ -45,7 +45,7 @@ grep -rn --include="*.rs" -E "Sysvar<'info,|UncheckedAccount.*[Cc]lock|AccountIn
 **Introspection notes**
 Sibling introspection (`get_processed_sibling_instruction`) returns already-processed instructions at the same stack height and with the same caller, index 0 = most recent, as program id + accounts + data only (no resulting account state or return data) — decode fully and prefer balance deltas (CPI-036). Pairing/flash-loan introspection logic: KV-151. Patch-gap lesson: Wormhole's fix was committed upstream but not deployed — compare deployed hash with the audited commit (KV-137).
 
-*Sources: Trail of Bits not-so-smart-contracts §2/§6 [paraphrased, AGPL-3.0, cited]; crytic/solana-lints U2 [paraphrased, cited]; Sealevel Sentinel sysvar list (MIT, Copyright (c) 2026 Stan (stantheman0128)), completed; original analysis.*
+*Sources: Trail of Bits not-so-smart-contracts `solana/sysvar_account_check` [paraphrased, AGPL-3.0, cited: https://github.com/crytic/building-secure-contracts/tree/master/not-so-smart-contracts/solana/sysvar_account_check]; crytic/solana-lints `lints/sysvar_get` [paraphrased, cited: https://github.com/crytic/solana-lints]; Sealevel Sentinel (stantheman0128/sealevel-sentinel) `src/detectors/sysvar-address.ts` sysvar list (MIT, Copyright (c) 2026 Stan (stantheman0128)), completed; original analysis.*
 
 **Overall verdict:**
 - ✅: All sysvar reads use syscalls, or passed sysvars are typed/address-checked

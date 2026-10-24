@@ -8,4 +8,4 @@ Checklists say **what** to check; this says **how to think** about code no check
 4. **Amplify (when you reach a bug).** Chain it, find more victims, lower the precondition cost.
 5. **Weaponize across the program.** Same name and same code shape in every other handler (a missing `token_program` pin in `deposit` → check every handler that takes one).
 
-Core rule, [verbatim, MIT, (c) 2024 AI Skills Contributors — pashov/skills `senior-auditor-sop.md`]: "A finding is not real until you've traced the attack with concrete values. You are an attacker, not a defender — when you find a bug, deepen the attack; never argue yourself out of one."
+Core rule, [verbatim, MIT, (c) 2024 AI Skills Contributors — pashov/skills `solidity-auditor/references/senior-auditor-sop.md`]: "A finding is not real until you've traced the attack with concrete values. You are an attacker, not a defender — when you find a bug, deepen the attack; never argue yourself out of one."

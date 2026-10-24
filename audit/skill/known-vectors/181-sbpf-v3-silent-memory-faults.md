@@ -45,4 +45,4 @@ buf[..n].fill(0xAA);
 
 **Overall verdict:** ✅ no fault-dependent safety · ❌ safety relied on a fault the target layout no longer raises (a v0 program that will not be upgraded: report (a) against the next upgrade, FP-14)
 
-*Sources: qedgen/solana-skills sBPF v3 low-address and stack-overrun patterns (MIT, Copyright (c) 2025 QEDGen); the low-address example replaced (absolute null pointer, `.rodata` length caveat); SIMD numbers, feature ids and the v3 memory map checked against Agave v4.0.0/v4.3.2 `feature-set` and `syscalls`, and against solana-sbpf 0.23.0 (`.rodata` at VA 0 under v3, which corrects the claim "bytecode at 0x0").*
+*Sources: qedgen/solana-skills `skills/qedgen-auditor/references/category-catalog.md` `sbpf_v3_low_address_read` and `sbpf_v3_stack_overrun_no_fault` (MIT, Copyright (c) 2025 QEDGen); the low-address example replaced (absolute null pointer, `.rodata` length caveat); SIMD numbers, feature ids and the v3 memory map checked against Agave v4.0.0/v4.3.2 `feature-set` and `syscalls`, and against solana-sbpf 0.23.0 (`.rodata` at VA 0 under v3, which corrects the claim "bytecode at 0x0").*

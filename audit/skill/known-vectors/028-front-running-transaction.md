@@ -44,7 +44,7 @@ rg -n 'pub fn (update|set|change)_(price|fee|rate|ask|params)' programs/
 - ✅ PASS: each consumer instruction (buy, fill, withdraw, redeem) takes a bound (`max_price`, `max_fee_bps`, `min_out`) or a version/nonce and compares it (`require!` or `assert!` — both abort atomically), or changes are delayed
 - ❌ FAIL: the consumer pays whatever the stored value is at execution (ECON-102)
 
-*Sources: Helius §3 [paraphrased, cited].*
+*Sources: Helius "A Hitchhiker's Guide to Solana Program Security", "Frontrunning" section [paraphrased, cited: https://www.helius.dev/blog/a-hitchhikers-guide-to-solana-program-security].*
 
 **Overall verdict:**
 - ✅: Slippage protection + priority fees/bundles

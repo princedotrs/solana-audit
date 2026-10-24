@@ -197,7 +197,7 @@ After every instruction a harness can assert: (1) no fuzzer-controlled account g
 
 Each invariant needs a harness that can *reach* the violating state. Use the flow recipes in `templates/fuzz-trident/RECIPES.md` (account-pool mixing, state injection, time flows) and mark each invariant "fuzz/proptest" or "prove" (Kani shapes in `templates/kani/`).
 
-*Sources: pashov/skills `fizz` round-trip analyst and gap lenses (MIT, Copyright (c) 2024 AI Skills Contributors), adapted and narrowed; qedgen/solana-skills X2 (MIT, Copyright (c) 2025 QEDGen); PlamenTSV/plamen `zero-state-return` (MIT, Copyright (c) 2025-2026 Plamen Contributors); SlowMist best practices (Apache-2.0, attributed to SlowMist), paraphrased; Ackee-Blockchain/trident (MIT, Copyright (c) 2021 Ackee Blockchain); workersio/skills (MIT, Copyright (c) 2026 workers.io).*
+*Sources: pashov/skills `fizz/agents/invariant-discovery/roundtrip-rounding-analyst.md` and `solidity-auditor/references/hacking-agents/numerical-gap-agent.md` (MIT, Copyright (c) 2024 AI Skills Contributors), adapted and narrowed; qedgen/solana-skills `skills/qedgen-auditor/references/probe_orchestration.md` protocol-mode guard suite (MIT, Copyright (c) 2025 QEDGen); PlamenTSV/plamen `agents/skills/solana/zero-state-return/SKILL.md` (MIT, Copyright (c) 2025-2026 Plamen Contributors); SlowMist solana-smart-contract-security-best-practices `README.md` (Apache-2.0, attributed to SlowMist), paraphrased; Ackee-Blockchain/trident (MIT, Copyright (c) 2021 Ackee Blockchain); workersio/skills `plugins/kani-proof/skills/kani-proof/references/invariant-design.md`, PR #9 tree (MIT, Copyright (c) 2026 workers.io).*
 
 ---
 

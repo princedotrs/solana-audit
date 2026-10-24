@@ -50,4 +50,4 @@ multisig.signers.push(new_signer);
 - ✅: every persisted key has a predicate and is re-validated at use
 - ❌: any later privileged decision trusts an unvalidated or point-in-time-checked key
 
-*Sources: qedgen/solana-skills store-without-validate pattern (MIT, Copyright (c) 2025 QEDGen) with the is_on_curve correction; solana-foundation/solana-dev-skill #7 (MIT, Copyright (c) 2026) with an added precondition.*
+*Sources: qedgen/solana-skills `skills/qedgen-auditor/references/manual-review-passes.md` §3e store-without-validate (MIT, Copyright (c) 2025 QEDGen) with the is_on_curve correction; solana-foundation/solana-dev-skill `skills/solana-dev/references/security.md` "Transient Account Owner Spoofing" (MIT, Copyright (c) 2026) with an added precondition.*

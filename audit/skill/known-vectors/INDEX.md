@@ -10,6 +10,7 @@ Every row carries a **Load when (markers)** cell: the grep/prescan markers that 
 
 - **Feature markers** (e.g. `pyth`·`switchboard`, `token_2022`·`transfer_hook`, `invoke`·`CpiContext`) mean the vector is feature-specific. When *every* marker is provably absent — an empty prescan array (see `references/orchestration/pre-scan.md`) or zero grep hits across the in-scope tree — the vector is skip-deferred and renders `[N/A — feature absent: <marker>]`. This is an **evidence-backed verdict**, and it **reopens on demand**: the instant a manual read surfaces the feature, load the vector and evaluate it.
 - **`always (<phase>)`** means the vector is universally applicable within that phase/domain and is **NEVER** skipped (private-key leak, secrets, supply-chain, access control, and other baseline vectors). A marker cell must never make a vector unreachable — when in doubt a vector is tagged to its phase (always-load for that scope), not a narrow feature.
+- **Quick audit.** A quick audit evaluates only the rows with Severity **7 or higher** whose trigger fires (an `always (crypto)` cell, or at least one marker present in the in-scope tree), lists which ones it evaluated, and says that the others were not evaluated ([QUICK-AUDIT.md](../QUICK-AUDIT.md) §1 step 5). "NEVER skipped" and "every in-scope vector gets a verdict" are the completeness rules of full, targeted and differential audits. The Severity column is the class's ceiling when its impact is realised, not the score of a finding (OUTPUT-RULES Rule 1).
 
 ## How to Contribute
 

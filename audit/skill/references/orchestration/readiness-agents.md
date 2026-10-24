@@ -10,7 +10,7 @@ Not a bug hunt. Never produces a security verdict (OUTPUT-RULES Rule 10).
 | 4 Dependencies | Infra | SC-063..067 + SC-004/011/033/037 |
 | 5 Best practices | Source | checklist 01/03/04 grep heuristics only (no deep analysis) |
 
-Agent output contract, [verbatim, MIT, (c) 2026 CD Security]:
+Agent output contract, [verbatim, MIT, (c) 2026 CD Security — CDSecurity/cdsecurity-skills `rust-audit-prep/references/shared-rules.md`]:
 ```
 PHASE <N> | <Name> | SCORE: <X>/100
 

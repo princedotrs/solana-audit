@@ -53,7 +53,7 @@ List donor types (a caller can create or write them without privilege) and victi
 - ✅ PASS: tag/discriminator checked before any field on every privileged read
 - ❌ FAIL: an overlay puts attacker bytes on a privileged field
 
-*Sources: Neodyme "Common Pitfalls" U1 [paraphrased, cited].*
+*Sources: Neodyme "Common Pitfalls", "Solana account confusions" section [paraphrased, cited: https://neodyme.io/en/blog/solana_common_pitfalls].*
 
 **Overall verdict:**
 - ✅: All accounts use Anchor discriminators, typed with Account<>, unique PDA seeds per type

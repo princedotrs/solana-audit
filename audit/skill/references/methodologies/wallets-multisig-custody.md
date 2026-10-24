@@ -214,7 +214,7 @@ Work backward from what an attacker wants; each maps to invariants to break:
 - **CC1 — Supply-chain hygiene is first-class, not "ops."** For any custody target, `checklists/11` gates:
   lockfile-only installs (`npm ci` / `--frozen-lockfile`), **dependency pinning by version *and* integrity
   hash**, `cargo audit`/`cargo deny`/`npm audit signatures` in CI, GitHub Actions `uses:` pinned by commit
-  SHA (not `@v3`), recently-published-dependency flagging (SC-007–SC-009), and — critically — **telemetry-SDK
+  SHA (not `@v3`), recently-published-dependency flagging (SC-009–SC-010), and — critically — **telemetry-SDK
   gating**: Sentry/Datadog/LogRocket transports must never receive anything deserializable into a key. The
   Slope failure was exactly a misconfigured Sentry transport shipping plaintext seeds. Cross-ref SC-* and §7.
 - **CC2 — Hardware-wallet display verification.** Every transaction sent to Ledger/Trezor must render as
@@ -296,7 +296,7 @@ Wallet/multisig programs are **state machines with adversarial members** — tes
   `num_signatures ≥ 1`, distinct-signer threshold (AV-111).
 - Use `templates/tx-presign-review.md` for specific transactions or proposals.
 
-*Sources: sanbir/solana-auditor-skills B9 (MIT, Copyright (c) 2024 AI Skills Contributors); solana-foundation/solana-dev-skill #13 (MIT, Copyright (c) 2026); original analysis; beriktassuly/solana-audit-skill (MIT, Copyright (c) 2026 Berektassuly).*
+*Sources: sanbir/solana-auditor-skills `solana-auditor/references/hacking-agents/solana-protocol-agent.md` "Account Abstraction / Session Keys" (MIT, Copyright (c) 2024 AI Skills Contributors); solana-foundation/solana-dev-skill `skills/solana-dev/references/programs/design-patterns.md` (MIT, Copyright (c) 2026); original analysis; beriktassuly/solana-audit-skill `skill/references/workflows/transaction-safety-workflow.md` and `skill/references/taxonomy/durable-nonce-governance.md` (MIT, Copyright (c) 2026 Berektassuly).*
 
 ---
 

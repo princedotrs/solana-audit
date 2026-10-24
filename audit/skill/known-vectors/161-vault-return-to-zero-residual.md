@@ -40,4 +40,4 @@ let shares = u64::try_from(num.checked_div(den).ok_or(ErrorCode::Math)?).map_err
 - ✅: no residual is claimable by the next minter at an unprotected rate
 - ❌: return-to-zero reopens first-depositor extraction
 
-*Sources: PlamenTSV/plamen `zero-state-return` (MIT, Copyright (c) 2025-2026 Plamen Contributors); fixed formula rewritten with u128 checked math.*
+*Sources: PlamenTSV/plamen `agents/skills/solana/zero-state-return/SKILL.md` (MIT, Copyright (c) 2025-2026 Plamen Contributors); fixed formula rewritten with u128 checked math.*

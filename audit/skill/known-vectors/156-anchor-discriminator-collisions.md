@@ -39,4 +39,4 @@ rg -n 'discriminator\s*=\s*\[\s*0\s*,' programs/         # leading zero bytes: c
 - ✅: no two account types can satisfy each other's discriminator check
 - ❌: two can
 
-*Sources: otter-sec/anchor footguns.mdx (two sentences verbatim, Apache-2.0; surrounding text rewritten), CHANGELOG (Apache-2.0, Copyright 2020 Anchor Maintainers); solana-foundation/solana-dev-skill #4e (MIT, Copyright (c) 2026); Solana Foundation course U3 [paraphrased, cited].*
+*Sources: otter-sec/anchor footguns.mdx (two sentences verbatim, Apache-2.0; surrounding text rewritten), CHANGELOG (Apache-2.0, Copyright 2020 Anchor Maintainers); solana-foundation/solana-dev-skill `skills/solana-dev/references/programs/anchor.md` custom discriminators (MIT, Copyright (c) 2026); Solana Foundation course `content/courses/program-security/owner-checks.md` [paraphrased, cited].*

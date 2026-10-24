@@ -58,7 +58,7 @@ rg -n "Signer<'info>" -B2 -A2 programs/ | rg 'try_borrow_data|data\.borrow|try_f
 ```
 - ❌ FAIL: the check reads a deserialized field; compares the wallet with the owning program (`auth.key != tok.owner`); compares with the wrong constant; is read but not enforced (`msg!`, `let _ =`); deserializes state from a `Signer` account; relies on `try_deserialize` (discriminator only) for provenance — a clone program's same-named struct passes (PoC: `svm.set_account(fake, owner: attacker_pid, data: [sha256("account:Vault")[..8], ...])`)
 
-*Sources: crytic/solana-lints U5, Solana Foundation course U3/U7, Neodyme U4 [paraphrased, cited].*
+*Sources: crytic/solana-lints `lints/missing_owner_check`, Solana Foundation course `content/courses/program-security/owner-checks.md`, Neodyme "Common Pitfalls" "Missing ownership check" section [paraphrased, cited: https://github.com/crytic/solana-lints ; https://neodyme.io/en/blog/solana_common_pitfalls].*
 
 **Overall verdict:**
 - ✅: All accounts typed with Account<>, UncheckedAccounts have runtime checks, remaining_accounts validated

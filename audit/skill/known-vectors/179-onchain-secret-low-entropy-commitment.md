@@ -24,4 +24,4 @@ rg -n 'msg!\(' programs/ | rg -i 'secret|pin|key|seed'
 
 **Overall verdict:** ✅ no secret-based gate · ❌ value gated on public or brute-forceable data
 
-*Sources: Ackee bootcamp item 7 [paraphrased, cited], timing and level-5 example corrected.*
+*Sources: Ackee-Blockchain Solana-Auditors-Bootcamp `Lesson-6/revival-attack`, `Lesson-6/arbitrary-cpi`, `Lesson-6/type-cosplay` and `Capture-the-Flag/` levels [paraphrased, cited: https://github.com/Ackee-Blockchain/Solana-Auditors-Bootcamp/tree/master], timing and level-5 example corrected.*

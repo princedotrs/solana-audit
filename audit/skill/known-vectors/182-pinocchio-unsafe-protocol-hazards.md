@@ -56,4 +56,4 @@ state.reserve = state.reserve.checked_sub(out).ok_or(ProgramError::ArithmeticOve
 
 **Overall verdict:** ✅ every unsafe precondition holds on every path · ❌ any does not
 
-*Sources: qedgen/solana-skills Pinocchio unsafe-protocol hazards (MIT, Copyright (c) 2025 QEDGen), Miri scope corrected; OtterSec VM post U3 [paraphrased, cited], narrowed to the unchecked-guard part and marked pseudo-code.*
+*Sources: qedgen/solana-skills `skills/qedgen-auditor/references/category-catalog.md` `pinocchio_stale_safety_comment` and `pinocchio_mutable_borrow_aliasing` (MIT, Copyright (c) 2025 QEDGen), Miri scope corrected; OtterSec "Solana: jumping around in the VM" (CPI gadget) [paraphrased, cited: https://osec.io/blog/2023-12-11-jumping-around-in-the-vm], narrowed to the unchecked-guard part and marked pseudo-code.*

@@ -27,4 +27,4 @@ Also run `cargo check` for dead-code warnings (Rule 11f). Note that rustc does n
 
 **Overall verdict:** ✅ intent enforced · ❌ dead guard on a value or authority path
 
-*Sources: qedgen/solana-skills declared-intent pattern (MIT, Copyright (c) 2025 QEDGen).*
+*Sources: qedgen/solana-skills `skills/qedgen-auditor/references/manual-review-passes.md` §3f dead-guard / intent-drift sweep and `skills/qedgen-auditor/references/category-catalog.md` `bounty_intent_drift` (MIT, Copyright (c) 2025 QEDGen).*

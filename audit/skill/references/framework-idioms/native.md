@@ -54,7 +54,7 @@ grep -rn -E "sysvar::|::ID|find_program_address|create_program_address" programs
 
 **The owner check reads `AccountInfo::owner`, never a deserialized field.** A field inside account data is attacker-controlled whenever the account is not yet trusted, so `cfg.owner == program_id` after unpacking is circular. Also compare against the **right** constant (`spl_token::ID`/Token-2022 for token accounts, `program_id` for program state) and enforce it (return an error; a `msg!` or a discarded comparison is not a check). `info.owner` (owning program) and an unpacked `token.owner` (wallet) are different things — swapping them yields a check that is wrong in both directions. Grep also: `*ai.owner != *program_id`, reversed operand order, Pinocchio `is_owned_by()` (≤ 0.9) / `owned_by()` (≥ 0.10) and `owner()`.
 
-*Sources: Neodyme "Common Pitfalls" [paraphrased, © Neodyme AG, https://neodyme.io/en/blog/solana_common_pitfalls]; crytic/solana-lints `missing_owner_check` tests [paraphrased, https://github.com/crytic/solana-lints].*
+*Sources: Neodyme "Common Pitfalls" [paraphrased, © Neodyme AG, https://neodyme.io/en/blog/solana_common_pitfalls]; crytic/solana-lints `lints/missing_owner_check` tests [paraphrased, https://github.com/crytic/solana-lints].*
 
 ---
 
@@ -210,7 +210,7 @@ Every native parse sits next to `*acc.owner == <expected token program>`; `_unch
 `acct.owner == X` proves ownership **now**. An address registered after only an owner check can later be served a different account (the account at that address must be closed and re-created — re-allocated and assigned to a program the attacker controls or can drive — so this matters only where later uses compare the key alone). At registration require owner + discriminator + expected data; at every use re-validate owner + discriminator (KV-148).
 
 <!-- verified: token program@v9.0.0 interface/src/state.rs (`unpack_from_slice` = `array_ref![src, 0, 165]` / `[src, 0, 82]`); solana-program-pack 3.1.0 src/lib.rs (`unpack_unchecked` requires `len == LEN`, `unpack` adds `is_initialized`); token-2022 program@v11.1.0 interface/src/extension/mod.rs (`adjust_len_for_multisig` adds `size_of::<ExtensionType>()`; `check_min_len_and_not_multisig`; `unpack` rejects uninitialised); anchor v0.29.0/v0.30.1/v0.31.1/v0.32.1/v1.0.0 lang/Cargo.toml borsh versions; agave v4.5.0-alpha.2 programs/system/src/system_processor.rs `transfer_verified`; anchor CHANGELOG 0.29.0 #2552, 0.30.0 #2907 -->
-*Sources: original analysis; Neodyme Token-2022 article/report [paraphrased, cited: https://neodyme.io/en/blog/token-2022]; crytic/solana-lints U4 and coral-xyz/sealevel-attacks #4 [paraphrased, cited]; OtterSec "Solana: an auditor's introduction" [paraphrased, cited: https://osec.io/blog/solana-security-intro]; solana-foundation/solana-dev-skill #7/#11 (MIT, Copyright (c) 2026).*
+*Sources: original analysis; Neodyme Token-2022 article/report [paraphrased, cited: https://neodyme.io/en/blog/token-2022]; crytic/solana-lints `lints/type_cosplay` and coral-xyz/sealevel-attacks `programs/3-type-cosplay` [paraphrased, cited]; OtterSec "Solana: an auditor's introduction" [paraphrased, cited: https://osec.io/blog/solana-security-intro]; solana-foundation/solana-dev-skill `skills/solana-dev/references/security.md` "Transient Account Owner Spoofing" and `skills/solana-dev/references/programs/design-patterns.md` (MIT, Copyright (c) 2026).*
 
 ---
 

@@ -39,4 +39,4 @@ require!(ctx.accounts.vault.delegate.is_none() && ctx.accounts.vault.delegated_a
 - ✅: no residual allowance survives
 - ❌: one does
 
-*Sources: pashov/skills execution-trace / numerical-gap lenses (MIT, Copyright (c) 2024 AI Skills Contributors), Solana-ported; the "use invoke_signed instead" advice removed.*
+*Sources: pashov/skills `solidity-auditor/references/hacking-agents/execution-trace-agent.md` and `solidity-auditor/references/hacking-agents/numerical-gap-agent.md` (MIT, Copyright (c) 2024 AI Skills Contributors), Solana-ported; the "use invoke_signed instead" advice removed.*

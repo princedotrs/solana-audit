@@ -9,3 +9,5 @@
 - **BLS / pairings:** rogue-key attack without proof of possession; non-RFC 9380 hash-to-curve; G1/G2 confusion; identity or non-canonical points accepted.
 - **Hand-rolled hashes/commitments:** Pedersen `h = g^c` with known `c` (binding broken); `H(v‖r)` with < 256-bit hash; non-CSPRNG randomness; a hand-rolled hash is a finding by default.
 - **Niche zero-copy collections (five axes):** iteration soundness (`DoubleEndedIterator` cursors crossing → two `&mut` to one slot); ordering preserved after `get_mut` changes a sort key; rebalancing cases (missing red-black delete-fixup case, stale order-statistic size/rank); capacity edge (silent eviction at full capacity, generation-counter wrap into the "empty" sentinel); interior mutability (`&self` returning `&mut` via raw cast; `RefCell` double borrow → panic DoS). Check whether the crate's own tests run under Miri.
+
+*Sources: qedgen/solana-skills `skills/qedgen-auditor/references/trust_surface_primitives.md` and `skills/qedgen-auditor/references/data_structure_dep_invariants.md` (MIT, Copyright (c) 2025 QEDGen), rewritten.*

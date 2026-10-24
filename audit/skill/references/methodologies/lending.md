@@ -380,7 +380,7 @@ grep -rn -E "maturity|expiry|principal_token|yield_token|pt_|yt_|discount" progr
 grep -rn -E "paused|pause|emergency|set_upgrade_authority|upgrade_authority" programs/
 ```
 
-*Sources: PlamenTSV/plamen and qedgen/solana-skills (MIT); solana-foundation/solana-dev-skill #2 (MIT, Copyright (c) 2026); Neodyme lending disclosure via solsec [paraphrased, cited: https://neodyme.io/blog/lending_disclosure]; SlowMist best practices U4 (Apache-2.0, attributed to SlowMist), paraphrased; Helius article §2 [paraphrased, cited], with a per-call-site rounding rule; sanbir/solana-auditor-skills B4 (MIT, Copyright (c) 2024 AI Skills Contributors); original analysis.*
+*Sources: PlamenTSV/plamen `agents/skills/solana/flash-loan-interaction/SKILL.md` and qedgen/solana-skills `skills/qedgen-auditor/references/category-catalog.md` (MIT); solana-foundation/solana-dev-skill `skills/solana-dev/references/programs/design-patterns.md` "In-transaction credit (flashloan pattern)" (MIT, Copyright (c) 2026); Neodyme lending disclosure via solsec [paraphrased, cited: https://neodyme.io/blog/lending_disclosure]; SlowMist best practices `README.md` "Loss of precision" (Apache-2.0, attributed to SlowMist), paraphrased; Helius "A Hitchhiker's Guide to Solana Program Security", "Rounding Errors" section [paraphrased, cited: https://www.helius.dev/blog/a-hitchhikers-guide-to-solana-program-security], with a per-call-site rounding rule; sanbir/solana-auditor-skills `solana-auditor/references/attack-vectors/attack-vectors-4.md` V100 (MIT, Copyright (c) 2024 AI Skills Contributors); original analysis.*
 
 ---
 

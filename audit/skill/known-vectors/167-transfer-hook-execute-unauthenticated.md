@@ -59,4 +59,4 @@ pub fn execute(ctx: Context<Execute>, amount: u64) -> Result<()> {
 - ✅: `Execute` only acts inside real transfers of supported mints
 - ❌: it can be driven directly
 
-*Sources: solana-foundation/solana-dev-skill #5 (MIT, Copyright (c) 2026); Neodyme Token-2022 article §D [paraphrased, cited]; HOOK-06 extra-account privilege rule checked against the SPL and Pinocchio transfer-hook interface sources (the signer handling differs by helper); the confidential-transfer `u64::MAX` amount checked against the Token-2022 source.*
+*Sources: solana-foundation/solana-dev-skill `skills/solana-dev/references/security.md` "Transfer Hook Security Surface" (MIT, Copyright (c) 2026); Neodyme "SPL Token-2022: Don't shoot yourself in the foot with extensions", "Transfer Hook" section [paraphrased, cited: https://neodyme.io/en/blog/token-2022]; HOOK-06 extra-account privilege rule checked against the SPL and Pinocchio transfer-hook interface sources (the signer handling differs by helper); the confidential-transfer `u64::MAX` amount checked against the Token-2022 source.*

@@ -31,7 +31,7 @@ grep -rn --include="*.rs" -E "bump = [a-z_]+\.bump|bump,\s*$" programs/*/src/ins
 - Bump provenance: classify the last element of every `create_program_address` seed list — instruction argument with no `== find_program_address(..).1` comparison in the fn or its helpers (High); field of a Borsh-decoded instruction struct (High); account field (safe only if written from `ctx.bumps`/`find_program_address` at an `init` that used `seeds` + bare `bump`). A stored canonical bump with `create_program_address` is recommended, not a finding.
 - PoC recipe: enumerate `b in 0..=255`, keep bumps where `create_program_address` succeeds (about half), call create+claim per bump; fixed code allows exactly one (templates/poc/RECIPES.md).
 
-*Sources: crytic/solana-lints U1 [paraphrased, cited]; Sealevel Sentinel (MIT, Copyright (c) 2026 Stan (stantheman0128)); Solana Foundation course U7/U8 [paraphrased, cited]; CDSecurity note.*
+*Sources: crytic/solana-lints `lints/bump_seed_canonicalization` [paraphrased, cited: https://github.com/crytic/solana-lints]; Sealevel Sentinel (stantheman0128/sealevel-sentinel) `src/detectors/bump-seed-canonicalization.ts` (MIT, Copyright (c) 2026 Stan (stantheman0128)); Solana Foundation course `content/courses/program-security/bump-seed-canonicalization.md` [paraphrased, cited]; CDSecurity/cdsecurity-skills `rust-audit-prep/references/checklist.md` `create_program_address` row, corrected (MIT, Copyright (c) 2026 CD Security).*
 
 **Step 4: Verify one-per-entity invariants hold under non-canonical bumps**
 - For "one position per user", "one vault per fund", etc.: confirm a second non-canonical PDA cannot be initialized for the same seeds

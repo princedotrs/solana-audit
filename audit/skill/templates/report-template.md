@@ -106,9 +106,9 @@
 | 04 | CPI & PDA | 91 | | | | | % |
 | 05 | State Machine | 91 | | | | | % |
 | 06 | Economic & Logic | 110 | | | | | % |
-| 07 | OpSec & Governance | 103 | | | | | % |
-| 11 | Supply Chain | 67 | | | | | % |
-| 12 | Secrets & OpSec | 53 | | | | | % |
+| 07 | OpSec & Governance | 97 | | | | | % |
+| 11 | Supply Chain | 47 | | | | | % |
+| 12 | Secrets & OpSec | 31 | | | | | % |
 | 16 | Formal Verification & Testing | 106 | | | | | % |
 | 21 | Anchor-Specific | 30 | | | | | % |
 | 22 | Token-2022 Integrator & Hook Author | 30 | | | | | % |
@@ -252,21 +252,21 @@ and the cross-cutting passes `PASS-Pn: done / N/A (reason)` (FULL-AUDIT Step 1.5
 
 ```
 [PASS]      OPS-001: {reason}
-...through OPS-103
+...through OPS-103 (IDs removed with off-chain items are skipped, 97 items in all)
 ```
 
 ### Checklist 11 — Supply Chain
 
 ```
-[PASS]      SC-001: {reason}
-...through SC-062 (file order; SC-063–SC-067 sit in §11.6, 67 items in all)
+[PASS]      SC-004: {reason}
+...through SC-062 (file order; SC-063–SC-067 sit in §11.6; IDs removed with off-chain items are skipped, 47 items in all)
 ```
 
 ### Checklist 12 — Secrets & OpSec
 
 ```
 [PASS]      SEC-001: {reason}
-...through SEC-053
+...through SEC-053 (IDs removed with off-chain items are skipped, 31 items in all)
 ```
 
 ### Checklist 16 — Formal Verification & Testing

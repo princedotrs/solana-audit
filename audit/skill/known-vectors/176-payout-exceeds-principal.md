@@ -9,7 +9,7 @@ category: crypto
 
 **Severity: 8 (HIGH → CRITICAL with a shared vault and permissionless claim)** | **Real: Ackee Solana Auditors Bootcamp CTF level-4 vesting; qedgen benchmark corpus**
 
-Vesting, streaming, reward and interest payouts must never sum past the deposit. A formula wrong at the boundary passes every `checked_*` operation and still over-pays, so unchecked-arithmetic greps do not find it; with a shared vault the excess comes out of other depositors' principal ("the vault balance caps it" only means the last claimant absorbs the shortfall). Classic shape, defect from qedgen [verbatim, MIT, (c) 2025 QEDGen]:
+Vesting, streaming, reward and interest payouts must never sum past the deposit. A formula wrong at the boundary passes every `checked_*` operation and still over-pays, so unchecked-arithmetic greps do not find it; with a shared vault the excess comes out of other depositors' principal ("the vault balance caps it" only means the last claimant absorbs the shortfall). Classic shape, defect from qedgen/solana-skills `skills/qedgen-auditor/references/category-catalog.md` `payout_exceeds_recorded_principal` [verbatim, MIT, (c) 2025 QEDGen]:
 ```rust
 // periods counts the *current* period as already released
 let periods = elapsed.checked_div(period_len)?.checked_add(1)?;
@@ -43,4 +43,4 @@ pub fn vested(total: u64, start: i64, end: i64, cliff: i64, now: i64) -> Option<
 
 **Overall verdict:** ✅ Σ payouts ≤ principal at every t · ❌ boundary over-payment
 
-*Sources: Ackee bootcamp item 5 [paraphrased, cited] with a corrected over-unlock condition; qedgen/solana-skills payout-exceeds-principal pattern (MIT, Copyright (c) 2025 QEDGen) — defect shape verbatim.*
+*Sources: Ackee-Blockchain Solana-Auditors-Bootcamp `Capture-the-Flag/level-4` vesting [paraphrased, cited: https://github.com/Ackee-Blockchain/Solana-Auditors-Bootcamp/tree/master/Capture-the-Flag/level-4] with a corrected over-unlock condition; qedgen/solana-skills `skills/qedgen-auditor/references/category-catalog.md` `payout_exceeds_recorded_principal` (MIT, Copyright (c) 2025 QEDGen) — defect shape verbatim.*

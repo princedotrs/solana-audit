@@ -44,7 +44,7 @@ grep -rn --include="*.rs" -E "init_if_needed" programs/
 - ❌ FAIL: other state still references the closed account by key, or children seeded by it revive when the parent is re-created (KV-175)
 - PoC: one transaction `[claim_and_close(entry), system_transfer(attacker → entry, rent)]`, then try the re-creation path separately
 
-*Sources: coral-xyz/sealevel-attacks (repo `programs/9-closing-accounts`), crytic/solana-lints U6, Solana Foundation course U1/U7 [paraphrased, cited]; qedgen/solana-skills C2 (MIT, Copyright (c) 2025 QEDGen); Sealevel Sentinel (MIT, Copyright (c) 2026 Stan (stantheman0128)); workersio note (#2169, #2726).*
+*Sources: coral-xyz/sealevel-attacks (repo `programs/9-closing-accounts`), crytic/solana-lints `lints/insecure_account_close`, Solana Foundation course `content/courses/program-security/closing-accounts.md` [paraphrased, cited]; qedgen/solana-skills `skills/qedgen-auditor/references/known-non-findings.md` Anchor `close` entry (MIT, Copyright (c) 2025 QEDGen); Sealevel Sentinel (stantheman0128/sealevel-sentinel) `src/detectors/closing-accounts.ts` (MIT, Copyright (c) 2026 Stan (stantheman0128)); workersio/skills `plugins/solana-audit/skills/solana-audit/references/account-closure-vulnerability.md` (PR #9 tree, MIT, Copyright (c) 2026 workers.io), version facts corrected against otter-sec/anchor CHANGELOG #2169, #2726.*
 
 **Overall verdict:**
 - ✅: All closes use Anchor `close` or a complete manual pattern (fully drained + assigned to System + resized to 0); no stale re-read/re-init

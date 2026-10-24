@@ -145,7 +145,7 @@ Miri checks host-native tests that call the program's Rust functions directly (p
 <!-- verified: Ackee-Blockchain/trident crates/cli/src/command/fuzz.rs (Debug {target, seed}); crates/fuzz/src/trident/flow_executor.rs (debug mode = single iteration with the given seed; failure message prints the current seed) -->
 <!-- verified: litesvm 0.10.0 src/lib.rs `get_feature_set`, litesvm 0.17.0 src/lib.rs `get_feature_set_ref`; trident crates/cli/src/command/mod.rs ("Anchor.toml file was not found in any parent directory"); trident documentation/docs/trident-manifest/index.md `[[fuzz.programs]]` -->
 
-*Sources: Ackee-Blockchain/trident (MIT, Copyright (c) 2021 Ackee Blockchain); solana-foundation/solana-dev-skill (MIT, Copyright (c) 2026); qedgen/solana-skills X1 (MIT, Copyright (c) 2025 QEDGen).*
+*Sources: Ackee-Blockchain/trident (MIT, Copyright (c) 2021 Ackee Blockchain); solana-foundation/solana-dev-skill `skills/solana-dev/references/testing.md` (MIT, Copyright (c) 2026); qedgen/solana-skills `skills/qedgen-auditor/references/probe_orchestration.md` lane order (MIT, Copyright (c) 2025 QEDGen).*
 
 ---
 

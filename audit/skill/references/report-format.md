@@ -157,4 +157,4 @@ Separate five lists: **Confirmed findings** · **Hypotheses / Open questions** (
 
 Use the WEAK / MODERATE / SATISFACTORY / STRONG gated rubric from FULL-AUDIT Phase 4.5. Every rating cites evidence; "not assessed: <reason>" is allowed; no default scores.
 
-*Sources: pashov/skills dedup-and-assembly (MIT, Copyright (c) 2024 AI Skills Contributors), adapted; beriktassuly/solana-audit-skill claim discipline (MIT, Copyright (c) 2026 Berektassuly); qedgen/solana-skills E4 (MIT, Copyright (c) 2025 QEDGen); Trail of Bits `code-maturity-assessor` [paraphrased, CC-BY-SA-4.0].*
+*Sources: pashov/skills `solidity-auditor/references/dedup-and-assembly.md` (MIT, Copyright (c) 2024 AI Skills Contributors), adapted; beriktassuly/solana-audit-skill `rules/audit-claim-discipline.md` (MIT, Copyright (c) 2026 Berektassuly); qedgen/solana-skills `skills/qedgen-auditor/SKILL.md` run status (MIT, Copyright (c) 2025 QEDGen); Trail of Bits `plugins/building-secure-contracts/skills/code-maturity-assessor/` [paraphrased, CC-BY-SA-4.0].*

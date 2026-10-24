@@ -11,39 +11,39 @@ Every item below is a single verification step. Mark each `[PASS]`, `[FAIL-{seve
 ## 2.1 — Signer Verification
 
 - [ ] **AC-001**: Every instruction that moves tokens, SOL, or lamports has at least one `Signer<'info>` in its accounts struct
-- [ ] **AC-002**: Every instruction that modifies on-chain state has at least one `Signer<'info>` — no permissionless state mutation
-- [ ] **AC-003**: The signer's pubkey is linked to a state field via `has_one` (e.g., `has_one = manager` on Fund account)
+- [ ] **AC-002**: Every instruction that modifies on-chain state has at least one `Signer<'info>`, or is an intended permissionless instruction (crank, keeper, liquidation) that is documented as such (AC-010) — no *unintended* permissionless state mutation
+- [ ] **AC-003**: The signer's pubkey is linked to a state field via `has_one` (e.g., `has_one = authority` on the object it administers)
 - [ ] **AC-004**: No instruction relies solely on passing an account as `AccountInfo` and checking `is_signer` manually (prefer Anchor `Signer<'info>`)
 - [ ] **AC-005**: If manual `is_signer` check is used, it's a hard `require!(account.is_signer, Error)`, not an if-else that silently skips
-- [ ] **AC-006**: Admin/manager instructions: `manager: Signer<'info>` AND `fund: Account<'info, Fund>` with `has_one = manager`
-- [ ] **AC-007**: Investor instructions: `investor: Signer<'info>` AND position/withdrawal with `has_one = investor`
+- [ ] **AC-006**: Privileged-role instructions (admin, manager, operator): the role key is a `Signer<'info>` AND the administered object is a typed account with `has_one = <role>` (e.g. `manager: Signer` + `pool: Account<'info, Pool>` with `has_one = manager`)
+- [ ] **AC-007**: User instructions (depositor, borrower, staker, investor): the user is a `Signer<'info>` AND their per-user account (position, obligation, stake, withdrawal request) has `has_one = <user>` or is a PDA seeded by the user's key
 - [ ] **AC-008**: Delegate instructions: delegate signer is validated against `token_account.delegate == Some(delegate.key())`
 - [ ] **AC-009**: No instruction allows a third party to act on behalf of a signer without explicit delegation mechanism
 - [ ] **AC-010**: There is no instruction callable by anyone (permissionless) that can move value — if one exists, document why
 
 ## 2.2 — Role-Based Access Control
 
-- [ ] **AC-011**: List all roles in the program (manager, investor, delegate, admin, anyone) and map each instruction to exactly one role
-- [ ] **AC-012**: No instruction has ambiguous role — "manager OR investor" must be explicitly documented and justified
-- [ ] **AC-013**: Role escalation: can a non-manager call a manager instruction by spoofing accounts? Verify each manager instruction
-- [ ] **AC-014**: Role escalation: can a non-investor call an investor instruction by spoofing position accounts?
+- [ ] **AC-011**: List all roles in the program (e.g. admin, operator, manager, user, delegate, anyone) and map each instruction to exactly one role
+- [ ] **AC-012**: No instruction has ambiguous role — "privileged role OR user" must be explicitly documented and justified
+- [ ] **AC-013**: Role escalation: can someone without a privileged role call that role's instruction by spoofing accounts? Verify each privileged instruction
+- [ ] **AC-014**: Role escalation: can a caller act on another user's per-user accounts (position, obligation, stake) by spoofing them?
 - [ ] **AC-015**: Admin role (if exists): how is admin defined? Hardcoded pubkey? Program authority? Multisig?
 - [ ] **AC-016**: If admin role exists, what can admin do? Can admin drain funds? Can admin pause/unpause?
 - [ ] **AC-017**: Is there a "superadmin" or "god mode" that bypasses all checks? Document and flag
-- [ ] **AC-018**: Fund manager cannot impersonate an investor (manager key ≠ investor key check if needed)
-- [ ] **AC-019**: Investor cannot impersonate the manager (investor key ≠ manager key for manager-only operations)
+- [ ] **AC-018**: A privileged role cannot also act as a user of the object it administers where that creates a conflict (e.g. manager key ≠ depositor key, if the design requires it)
+- [ ] **AC-019**: A user cannot pass as the privileged role (the role key is compared with the stored role field, not with a key the user supplies)
 
 ## 2.3 — Permission Boundaries
 
-- [ ] **AC-020**: Manager can only operate on their own fund (not another manager's fund)
-- [ ] **AC-021**: Investor can only operate on their own position (not another investor's position)
-- [ ] **AC-022**: Manager cannot directly withdraw investor funds (only through fee mechanism)
-- [ ] **AC-023**: Manager fee percentage has a maximum cap enforced on-chain
-- [ ] **AC-024**: Manager cannot change fee after fund creation (or changes are time-locked)
+- [ ] **AC-020**: A privileged role can only operate on the objects it administers (not another manager's pool, fund or market)
+- [ ] **AC-021**: A user can only operate on their own per-user accounts (not another user's position)
+- [ ] **AC-022**: A privileged role cannot directly withdraw user funds (only through the documented fee or settlement mechanism)
+- [ ] **AC-023**: Any fee a privileged role sets has a maximum cap enforced on-chain
+- [ ] **AC-024**: A privileged role cannot change a fee after users have committed funds without a time lock or a snapshot (KV-172)
 - [ ] **AC-025**: Treasury address is validated on every fee transfer — cannot be changed to attacker-controlled address
 - [ ] **AC-026**: Treasury address is hardcoded or stored in an immutable configuration — not a mutable field
-- [ ] **AC-027**: Platform fee minimum is enforced (`admin_fee >= minimum`) — manager cannot set it to zero
-- [ ] **AC-028**: No instruction allows transferring fund PDA ownership from one manager to another without governance
+- [ ] **AC-027**: Where the protocol takes a platform fee, its minimum is enforced (`platform_fee >= minimum`) — an object's creator or manager cannot set it to zero
+- [ ] **AC-028**: No instruction transfers an object's privileged role (manager, authority) to another key without the documented process (two-step transfer, governance)
 - [ ] **AC-029**: Whitelist management (if exists) — only authorized role can add/remove programs
 
 ## 2.4 — Freeze & Pause Mechanisms
@@ -102,4 +102,4 @@ Every item below is a single verification step. Mark each `[PASS]`, `[FAIL-{seve
 - [ ] **AC-065**: No instruction's security rests on constraints anchored to an unchecked, caller-supplied key (AV-110, KV-145). "The CPI returned Ok" from an unpinned verifier/oracle program is not proof of verification.
 - [ ] **AC-066**: Admin variants of user flows (`set_position_range`, `rebalance`, `unpause`, `set_fee`) that re-run a value-moving flow apply the user path's guards (slippage, oracle staleness, manipulation locks). A user must not be able to sandwich the admin transaction (bundles).
 
-*Sources: sanbir/solana-auditor-skills B1 + access lens (MIT, Copyright (c) 2024 AI Skills Contributors); Ackee bootcamp #1 [paraphrased, cited] with corrections; Helius §1 [paraphrased, cited] with corrections; sannykim/solsec → Solend incident [paraphrased, cited]; qedgen/solana-skills P2 and store-without-validate pattern (MIT, Copyright (c) 2025 QEDGen) with is_on_curve correction; PlamenTSV/plamen §7/§9/§10 (MIT, Copyright (c) 2025-2026 Plamen Contributors); Sealevel Sentinel #3 (MIT, Copyright (c) 2026 Stan (stantheman0128)) with constant-key correction; SlowMist U1/U2 (Apache-2.0, attributed to SlowMist), paraphrased with Jet-fix correction; pashov/skills asymmetry step 5 (MIT, Copyright (c) 2024 AI Skills Contributors).*
+*Sources: sanbir/solana-auditor-skills `solana-auditor/references/attack-vectors/attack-vectors-1.md` V24 and `solana-auditor/references/hacking-agents/access-control-agent.md` (MIT, Copyright (c) 2024 AI Skills Contributors); Ackee-Blockchain Solana-Auditors-Bootcamp `Lesson-6/initialization-frontrunning` [paraphrased, cited: https://github.com/Ackee-Blockchain/Solana-Auditors-Bootcamp/tree/master/Lesson-6/initialization-frontrunning] with corrections; Helius "A Hitchhiker's Guide to Solana Program Security", "Insecure Initialization" section [paraphrased, cited: https://www.helius.dev/blog/a-hitchhikers-guide-to-solana-program-security] with corrections; sannykim/solsec → Solend incident [paraphrased, cited]; qedgen/solana-skills `skills/qedgen-auditor/references/manual-review-passes.md` §3b per-role identity anchoring and §3e store-without-validate, `skills/qedgen-auditor/references/category-catalog.md` `field_chain_missing_root_anchor` (MIT, Copyright (c) 2025 QEDGen) with is_on_curve correction; PlamenTSV/plamen `prompts/solana/phase4b-scanner-templates.md` (CHECK 3/4, defense parity), `agents/skills/solana/flash-loan-interaction/SKILL.md` §5b and `agents/skills/solana/semi-trusted-roles/SKILL.md` (MIT, Copyright (c) 2025-2026 Plamen Contributors); Sealevel Sentinel (stantheman0128/sealevel-sentinel) `src/detectors/missing-signer.ts` (MIT, Copyright (c) 2026 Stan (stantheman0128)) with constant-key correction; SlowMist best practices `README.md` "Case Analysis" (Jet `withdraw_tokens`) and "Timely state reset" [https://github.com/slowmist/solana-smart-contract-security-best-practices] (Apache-2.0, attributed to SlowMist), paraphrased with Jet-fix correction; pashov/skills `solidity-auditor/references/hacking-agents/asymmetry-agent.md` step 5 (MIT, Copyright (c) 2024 AI Skills Contributors).*

@@ -31,10 +31,10 @@ Every item below is a single verification step. Mark each `[PASS]`, `[FAIL-{seve
 - [ ] **OPS-016**: Search for unused instruction handlers that could be invoked — dead code that's still callable
 - [ ] **OPS-017**: Verify IDL matches the actual program binary — no undisclosed instructions
 - [ ] **OPS-018**: Check for instructions that can modify the Treasury pubkey to redirect fees
-- [ ] **OPS-019**: Check for instructions that can modify the Jupiter/DEX program ID to redirect swaps
-- [ ] **OPS-020**: Check for instructions that can change fund manager without investor consent
-- [ ] **OPS-021**: Check for instructions that can mint shares without deposit (share dilution)
-- [ ] **OPS-022**: Check for instructions that can burn shares without withdrawal (theft)
+- [ ] **OPS-019**: Check for instructions that can modify a stored external program ID (e.g. DEX/aggregator router, oracle, staking or lending program) to redirect CPIs
+- [ ] **OPS-020**: Check for instructions that can replace a privileged role (e.g. vault operator, pool/market admin, lending risk admin, stake-pool manager) without the timelock, governance vote or user opt-out the protocol promises
+- [ ] **OPS-021**: Check for instructions that can mint claim tokens without a matching deposit (e.g. vault shares, LP tokens, lending receipt tokens, liquid-staking tokens) — dilution
+- [ ] **OPS-022**: Check for instructions that can burn or seize a user's claim tokens or positions without the user's withdrawal (outside a documented liquidation path) — theft
 - [ ] **OPS-023**: Search for `unsafe` blocks in Rust code — any usage must be documented and justified
 - [ ] **OPS-024**: Search for raw pointer manipulation (`*const`, `*mut`) — should not exist in Anchor programs
 - [ ] **OPS-025**: Check `declare_id!` matches between code and Anchor.toml — mismatch could mean wrong program
@@ -44,13 +44,9 @@ Every item below is a single verification step. Mark each `[PASS]`, `[FAIL-{seve
 
 - [ ] **OPS-027**: Deploy keypair — is it on a hardware wallet for mainnet?
 - [ ] **OPS-028**: Deploy keypair — is it stored securely (not in repo, not on dev machine in plaintext)?
-- [ ] **OPS-029**: Manager wallets — are they on hardware wallets or multisig for mainnet?
-- [ ] **OPS-030**: Backend server wallet (if exists) — is it the minimum-privilege wallet?
-- [ ] **OPS-031**: Backend server wallet — does it hold significant SOL/tokens? (Should only hold gas)
-- [ ] **OPS-032**: API keys (Helius, Jupiter, etc.) — are they rotated regularly?
-- [ ] **OPS-033**: API keys — are they scoped to minimum required permissions?
-- [ ] **OPS-034**: RPC endpoint — is it a dedicated RPC (Helius/Triton) not the public endpoint?
-- [ ] **OPS-035**: RPC endpoint — is the API key exposed in frontend code?
+- [ ] **OPS-029**: Privileged-role wallets (e.g. admin, operator, pool/market authority, oracle or price-update signer) — are they on hardware wallets or multisig for mainnet?
+- [ ] **OPS-030**: Keeper / crank / relayer wallet that holds an on-chain role (if any) — is that role the minimum privilege the program needs (it can crank, not withdraw or reconfigure)?
+- [ ] **OPS-031**: Keeper / crank / relayer wallet — does it hold significant SOL/tokens? (Should only hold fees and rent)
 - [ ] **OPS-036**: Has any key ever been committed to git? Check `GIT_NO_LAZY_FETCH=1 git --no-pager -c core.fsmonitor=false -c log.showSignature=false log --all --oneline --no-textconv --no-ext-diff -S "secret_string"` patterns (OUTPUT-RULES Rule 11c flags)
 
 ## 7.4 — Multisig Configuration
@@ -69,7 +65,7 @@ Every item below is a single verification step. Mark each `[PASS]`, `[FAIL-{seve
 - [ ] **OPS-045**: Can the program be paused in an emergency? By whom? How quickly?
 - [ ] **OPS-046**: Is there a bug bounty program? (Immunefi, HackerOne, or self-hosted)
 - [ ] **OPS-047**: Is there a security contact (security@domain.com, SECURITY.md in repo)?
-- [ ] **OPS-048**: Are there monitoring alerts for large value movements from fund PDAs?
+- [ ] **OPS-048**: Are there monitoring alerts for large value movements from program-owned vault/treasury PDAs?
 - [ ] **OPS-049**: Are there monitoring alerts for program upgrade transactions?
 - [ ] **OPS-050**: Are there monitoring alerts for unusual transaction patterns (many withdrawals, large swaps)?
 - [ ] **OPS-051**: Is there a war room process? Who needs to be contacted and in what order?
@@ -80,7 +76,7 @@ Every item below is a single verification step. Mark each `[PASS]`, `[FAIL-{seve
 - [ ] **OPS-053**: List ALL actions that are time-locked and their durations
 - [ ] **OPS-054**: Program upgrades — timelock duration: _____ hours/days
 - [ ] **OPS-055**: Fee changes — timelock duration: _____ hours/days (or "none" — flag if none)
-- [ ] **OPS-056**: Manager changes — timelock duration: _____ hours/days (or "none")
+- [ ] **OPS-056**: Privileged-role changes (admin, operator, oracle signer) — timelock duration: _____ hours/days (or "none")
 - [ ] **OPS-057**: Whitelist changes — timelock duration: _____ hours/days (or "none")
 - [ ] **OPS-058**: Treasury address changes — timelock duration: _____ hours/days (should be "immutable")
 - [ ] **OPS-059**: Emergency bypass for timelock — what triggers it? How many signers?
@@ -89,13 +85,11 @@ Every item below is a single verification step. Mark each `[PASS]`, `[FAIL-{seve
 
 ## 7.7 — Access Segregation
 
-- [ ] **OPS-062**: Dev, staging, and production environments use completely separate keys
+- [ ] **OPS-062**: Localnet/devnet and mainnet deployments use completely separate program keypairs, upgrade authorities and admin keys
 - [ ] **OPS-063**: No developer has production deploy access from their personal machine
 - [ ] **OPS-064**: CI/CD pipeline — does it auto-deploy? If yes, what are the safeguards?
-- [ ] **OPS-065**: Server access — SSH keys rotated, 2FA enabled, access logging
-- [ ] **OPS-066**: Database access — separate credentials per environment, no shared passwords
-- [ ] **OPS-067**: Wallet private keys — never in CI/CD environment variables in plaintext
-- [ ] **OPS-068**: Secret manager used? (AWS Secrets Manager, Vault, doppler, etc.)
+- [ ] **OPS-067**: Deploy, upgrade-authority and admin private keys — never in CI/CD environment variables or job logs in plaintext
+- [ ] **OPS-068**: Where CI or scripts sign deploys or admin transactions, the key comes from a secrets manager, KMS/HSM or a multisig proposal flow — not a keypair file on a runner or developer machine
 
 ## 7.8 — Source Code Integrity
 
@@ -151,7 +145,7 @@ Every item below is a single verification step. Mark each `[PASS]`, `[FAIL-{seve
 - [ ] **OPS-096**: Programs that CPI through a `declare_program!` client generate it from a reviewed IDL file committed under `idls/` and pinned to the callee's deployed version. A callee upgrade that changes discriminators, account order or argument layout is caught by review before the caller ships.
 - [ ] **OPS-097**: Before the upgrade authority is revoked, configuration is frozen in a sane state, a recovery or sweep path exists for every account type, and a singleton init that binds to the upgrade authority has already run (AC-056).
 
-*Sources: 0xMacro/awesome-solana-security → Accretion "Hidden IDL Instructions" [paraphrased, cited]; CDSecurity/cdsecurity-skills U4 (MIT, Copyright (c) 2026 CD Security); otter-sec/anchor (Apache-2.0); beriktassuly/solana-audit-skill U7 (MIT, Copyright (c) 2026 Berektassuly); solana-foundation/solana-dev-skill #13 (MIT, Copyright (c) 2026); qedgen/solana-skills live-config custody pattern (MIT, Copyright (c) 2025 QEDGen); sannykim/solsec → Opcodes simulation-detection post [paraphrased, cited, low confidence]; PlamenTSV/plamen §4.7 (MIT, Copyright (c) 2025-2026 Plamen Contributors).*
+*Sources: 0xMacro/awesome-solana-security → Accretion "Hidden IDL Instructions" [paraphrased, cited]; CDSecurity/cdsecurity-skills `rust-audit-prep/references/checklist.md` (test helpers / `cfg(test)` leaks) (MIT, Copyright (c) 2026 CD Security); otter-sec/anchor (Apache-2.0); beriktassuly/solana-audit-skill `skill/references/taxonomy/durable-nonce-governance.md` (MIT, Copyright (c) 2026 Berektassuly); solana-foundation/solana-dev-skill `skills/solana-dev/references/programs/design-patterns.md` (MIT, Copyright (c) 2026); qedgen/solana-skills `skills/qedgen-auditor/references/category-catalog.md` `custody_terms_retroactive_mutation` (MIT, Copyright (c) 2025 QEDGen); sannykim/solsec → Opcodes simulation-detection post [paraphrased, cited, low confidence]; PlamenTSV/plamen `agents/skills/solana/migration-analysis/SKILL.md` (immutability endgame) (MIT, Copyright (c) 2025-2026 Plamen Contributors).*
 
 ## 7.14 — Upgrade & Account-Migration Safety
 
@@ -163,4 +157,4 @@ Every item below is a single verification step. Mark each `[PASS]`, `[FAIL-{seve
 - [ ] **OPS-103**: Destructive layout changes copy to a new account/PDA rather than reinterpreting in place. The migration is tested against realistic state: mainnet-dumped accounts in LiteSVM/Mollusk, a byte-diff of carried fields, and a negative test on already-migrated accounts.
 
 <!-- verified: anchor v1.0.0 lang/src/accounts/migration.rs try_from = owner check + From::try_deserialize only (no To-discriminator check); migrate()/try_as_from -> AccountAlreadyMigrated only when inner is already To; exit() -> AccountNotMigrated. -->
-*Sources: beriktassuly/solana-audit-skill U3 (MIT, Copyright (c) 2026 Berektassuly); PlamenTSV/plamen §4 (MIT, Copyright (c) 2025-2026 Plamen Contributors).*
+*Sources: beriktassuly/solana-audit-skill `skill/references/taxonomy/upgrade-admin-governance.md` (MIT, Copyright (c) 2026 Berektassuly); PlamenTSV/plamen `agents/skills/solana/migration-analysis/SKILL.md` (MIT, Copyright (c) 2025-2026 Plamen Contributors).*

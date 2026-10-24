@@ -38,4 +38,4 @@ require!(vault.owner == vault_authority.key() && !vault.is_frozen(), ErrorCode::
 - ✅: vaults are program-created at PDA addresses, or adopted vaults are scrubbed and re-checked
 - ❌: an attacker can close and re-create an adopted vault
 
-*Sources: original analysis; Ackee bootcamp item 4 smell, corrected (delegate cleared; ImmutableOwner) [paraphrased, cited].*
+*Sources: original analysis; Ackee-Blockchain Solana-Auditors-Bootcamp `Capture-the-Flag/level-4` smell, corrected (delegate cleared; ImmutableOwner) [paraphrased, cited: https://github.com/Ackee-Blockchain/Solana-Auditors-Bootcamp/tree/master/Capture-the-Flag/level-4].*

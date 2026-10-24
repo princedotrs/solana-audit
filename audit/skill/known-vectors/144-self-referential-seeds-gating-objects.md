@@ -50,4 +50,4 @@ pub owner: Signer<'info>,
 - ✅: every self-referential PDA and gate is bound to the caller / intended instance
 - ❌: a genuine-but-foreign PDA or a self-made gating object passes
 
-*Sources: Ackee-Blockchain Solana-Auditors-Bootcamp item 2 [paraphrased, no licence, cited], narrowed to the two new angles.*
+*Sources: Ackee-Blockchain Solana-Auditors-Bootcamp `Lesson-6/pda-privileges`, `Capture-the-Flag/level-3` and `Capture-the-Flag/level-5` [paraphrased, no licence, cited: https://github.com/Ackee-Blockchain/Solana-Auditors-Bootcamp/tree/master], narrowed to the two new angles.*

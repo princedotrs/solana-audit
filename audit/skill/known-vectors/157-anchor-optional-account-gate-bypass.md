@@ -38,4 +38,4 @@ if pool.gated {
 - ✅: no required check depends on the caller choosing `Some`
 - ❌: a required check does
 
-*Sources: solana-foundation/solana-dev-skill #3 (MIT, Copyright (c) 2026).*
+*Sources: solana-foundation/solana-dev-skill `skills/solana-dev/references/programs/design-patterns.md` (Anchor `Option` gotcha) (MIT, Copyright (c) 2026).*

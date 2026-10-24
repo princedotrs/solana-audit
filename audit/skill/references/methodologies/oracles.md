@@ -354,7 +354,7 @@ rg -n "agg\.price|agg\.status|PriceStatus|load_price_account|get_current_price|g
 See lending.md §10 restart grace. After a halt, slot-based and time-based freshness disagree;
 record which one the program uses.
 
-*Sources: sannykim/solsec → OtterSec "The $200m Bluff" [paraphrased, cited: https://osec.io/blog/2022-02-16-lp-token-oracle-manipulation]; PlamenTSV/plamen §9 (MIT, Copyright (c) 2025-2026 Plamen Contributors); SlowMist best practices U5 (Apache-2.0, attributed to SlowMist), status list completed; original analysis.*
+*Sources: sannykim/solsec → OtterSec "The $200m Bluff" [paraphrased, cited: https://osec.io/blog/2022-02-16-lp-token-oracle-manipulation]; PlamenTSV/plamen `agents/skills/solana/external-precondition-audit/SKILL.md` (MIT, Copyright (c) 2025-2026 Plamen Contributors); SlowMist best practices `README.md` "Pyth oracle check" (Apache-2.0, attributed to SlowMist), status list completed; original analysis.*
 
 ---
 
