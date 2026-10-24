@@ -1,7 +1,7 @@
 ---
 name: audit-assist
 description: Flow B — AI-assisted iterative audit with a human in the loop. Same lifecycle as audit-cycle, but pauses at checkpoints to surface confirmed findings, the next-focus plan, and targeted questions only the human can answer (business context, trust model, severity calls). The human steers; the agent re-synthesizes toward the audit document.
-argument-hint: "[path] [--scope full|program]"
+argument-hint: "[path] [--scope full|program|opsec]"
 allowed-tools: Read, Grep, Glob, Bash, Task
 ---
 

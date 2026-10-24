@@ -1,7 +1,7 @@
 ---
 name: audit-cycle
 description: Flow A — fully automated audit-firm lifecycle for Solana on-chain programs. Runs scope → context → tool-assisted first pass → domain-partitioned manual review → independent reconciliation → client report end-to-end, and delivers a professional audit report (MD + optional PDF). Audit-shaped automation, not a substitute for a human firm audit.
-argument-hint: "[path] [--scope full|program] [--with-poc]"
+argument-hint: "[path] [--scope full|program|opsec] [--with-poc]"
 allowed-tools: Read, Grep, Glob, Bash, Task
 ---
 

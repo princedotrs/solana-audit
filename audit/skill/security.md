@@ -1,5 +1,7 @@
 # Solana Program Security
 
+> Categories 1–9, the program checklist and the review questions are adapted, largely verbatim, from solana-foundation/solana-dev-skill `skills/solana-dev/references/security.md` [verbatim, MIT, Copyright (c) 2026 — see ATTRIBUTION.md].
+
 ## Core Principle
 
 Assume the attacker controls:
@@ -111,7 +113,9 @@ if ctx.accounts.account.is_initialized {
 }
 ```
 
-**Critical**: Avoid `init_if_needed` - it permits reinitialization.
+**Critical**: Prefer plain `init` for one-time setup. `init_if_needed` does not re-run `init` on an account that already exists: it skips creation and only validates the existing account (owner, type/discriminator, `space`, rent exemption, and any declared `token::` / `mint::` / `associated_token::` fields). The handler body, however, runs on every call, so a handler that unconditionally writes initial state (authority, balances, flags) resets that state on the second call. If `init_if_needed` is required, gate those writes on an initialized flag or on the stored authority (FP-5, AV-023/024, KV-014). Version notes: it needs the `init-if-needed` cargo feature since anchor-lang 0.21.0 (#1258); the existing-account constraint checks arrived in 0.19.0 (#1096) and the ATA and rent-exemption checks in 0.20.0 (#1221, #1250), so older versions validate less; on released versions up to and including 1.2.1 the `extensions::*` constraints of an existing Token-2022 mint are not re-checked on that path.
+<!-- verified: anchor CHANGELOG at v0.32.1 (#906 in 0.18.0, #1096 in 0.19.0, #1221/#1250 in 0.20.0, #1258 in 0.21.0); v1.2.1 lang/syn/src/codegen/accounts/constraints.rs init_if_needed branch (ConstraintSpace, ConstraintOwner, ConstraintRentExempt on the existing-account path); Token-2022 extension gap per #4845, not in any tag through v1.2.1 -->
+
 
 **Pinocchio Prevention**:
 ```rust
@@ -328,3 +332,29 @@ let value = number_1.checked_div(denominator).ok_or(ProgramError::ArithmeticOver
 7. Can an attacker revive a closed account in the same transaction?
 8. Can an attacker exploit mismatches between stored and provided data?
 9. Can an attacker exploit improper rounding?
+
+---
+
+## Class index — where each class is checked
+
+| Class | Checklist / vector IDs | Reference example (cite only) | Caveat |
+|---|---|---|---|
+| Owner checks | AV-001, AV-033, AV-095, AV-096, KV-015 | sealevel-attacks `2-owner-checks` | `Pack::unpack` / Borsh deserialization never checks `AccountInfo::owner`; a discriminator proves the type, not the owning program |
+| Signer checks | AC-001..009, AC-059, KV-013 | sealevel-attacks `0-signer-authorization` | comparing a key with a hard-coded or stored admin key without `is_signer` is still a missing-signer bug |
+| Arbitrary CPI | CPI-003..010, CPI-028..030, KV-009, KV-154 | sealevel-attacks `5-arbitrary-cpi` | the corpus `insecure` example is not exploitable as written: the `spl_token::instruction::transfer` builder rejects a non-SPL program id with `IncorrectProgramId` (FP-7). The class is real when `Instruction.program_id` is caller-chosen and no builder checks it |
+| Reinitialization | AV-023/024/053/054, AV-099/100, KV-014, KV-142 | sealevel-attacks `4-initialization` | the corpus `secure` variant has inverted polarity: it rejects when the flag is *false*, so it blocks the first init and allows every re-init |
+| PDA sharing | PDA-022, PDA-023, KV-143, KV-144 | sealevel-attacks `8-pda-sharing` | the requirement is per-instance seeding. The corpus passes the `Signer` as the transfer authority, so its PDA seeds are never actually used to sign |
+| Type cosplay | AV-011..017, AV-097, KV-010, KV-027, KV-156, KV-159 | sealevel-attacks `3-type-cosplay` | a Borsh enum tag is the variant's declaration index by default. borsh 0.10 ignores explicit `= N` discriminants; borsh ≥ 1.0 refuses to compile an enum with explicit discriminants unless it states `#[borsh(use_discriminant = true \| false)]`, and only `true` makes the tag the `= N` value |
+| Duplicate mutable accounts | AV-031, AV-108, AN-010/011, FP-6 | sealevel-attacks `6-duplicate-mutable-accounts` | Anchor rejects duplicates automatically only from 1.0.0, and only for `mut` fields of `Account`, `LazyAccount`, `InterfaceAccount` or `Migration` without a `dup` constraint (FP-6, AN-010). `AccountLoader`, `UncheckedAccount`, `AccountInfo`, `SystemAccount`, `Signer`, `dup` fields and `remaining_accounts` still need a manual key check. The corpus example omits `mut`, so even 1.0.0 would not reject it |
+| Revival (closing) | AV-056, KV-106, KV-175, FP-2 | sealevel-attacks `9-closing-accounts` | the corpus pins anchor-lang 0.20.1 (closed-account sentinel era). Since 0.26.0 `close` reassigns to the System Program and truncates the data (FP-2) |
+| Data matching | AV-020/021, AC-057, KV-016, KV-146, KV-147 | sealevel-attacks `1-account-data-matching` | the corpus `secure` variant still never checks that the token account is owned by the token program |
+| Rounding — protocol-favourable both ways | AR-022, AR-023, AR-071, KV-012 | Neodyme SPL token-lending rounding disclosure | round-to-nearest / half-up on a value path lets one side gain on every operation; round each direction in the protocol's favour |
+| Rounding — dust / round trips | AR-024, FV-103, invariant-catalog §8 | — | size the extractable value by compute units × transactions an attacker can afford |
+| Precision loss | AR-010..017, AR-021, AR-074, AR-078, `references/methodologies/dimensional-analysis.md` | — | track units and scales per mint and per oracle |
+| (extra) Bump canonicalization | KV-104, PDA-025 | sealevel-attacks `7-bump-seed-canonicalization` | reusing a stored bump with `create_program_address` is fine only when that bump came from `find_program_address` (or Anchor `bump`) at init and is read back from a program-owned, type-checked account. A bump taken from instruction data or an unchecked account is not (PDA-025) |
+| (extra) Sysvar address | AV-068/069, KV-101, FP-8 | sealevel-attacks `10-sysvar-address-checking` | `Sysvar::from_account_info` and Anchor `Sysvar<'info, T>` check the sysvar id; prefer `Clock::get()` / `Rent::get()` |
+| (extra) Instruction introspection | AV-091..094, KV-151 | Trail of Bits not-so-smart-contracts `solana/improper_instruction_introspection` | use the checked sysvar helpers, bind every field of the producer instruction, and reject CPI entry with a stack-height check (AV-092) |
+
+Fuzz recipes per class: `templates/fuzz-trident/RECIPES.md`. Eval fixtures: `templates/evals/sealevel-attacks-labels.json`.
+<!-- verified: sealevel-attacks HEAD 24555d0 programs/{1-account-data-matching,4-initialization,6-duplicate-mutable-accounts,8-pda-sharing}/secure|insecure/src/lib.rs; 5-arbitrary-cpi/insecure/Cargo.toml spl-token 3.1.1 (lock 3.2.0) — builder check added by SPL #1714 (commit 38751ab, 2021-05-12), token program@v3.5.0 program/src/instruction.rs L967 + lib.rs L82; 9-closing-accounts/*/Cargo.toml anchor-lang 0.20.1 -->
+*Sources: coral-xyz/sealevel-attacks [cited, paraphrased; directory names only]; Sealevel Sentinel class-to-fixture mapping (MIT, Copyright (c) 2026 Stan (stantheman0128)); Solana Foundation Program Security course [cited, paraphrased]; Trail of Bits not-so-smart-contracts [cited, paraphrased, AGPL-3.0].*

@@ -168,7 +168,7 @@ Row totals: Resolved + Acknowledged + Open should reconcile to Confirmed.
 This is NOT a "safe to deploy" verdict. Mirror how real firms convey readiness:
   - Codebase maturity: overall engineering quality (test coverage, arithmetic
     discipline, account validation rigor, error handling) — reference the Code
-    Maturity Assessment in §8 for the scored breakdown.
+    Maturity Assessment in §8 for the per-category ratings.
   - Resolution status: how many of the material findings are fixed vs. open.
   - Trust-model caveats: what the security of the system CURRENTLY depends on
     (e.g. "an honest, non-compromised upgrade authority", "an accurate oracle",
@@ -337,7 +337,7 @@ code:
 | Supply chain & secrets | Program dependencies, keypairs and secrets, build reproducibility |
 | Verification & testing | Test/fuzz quality, property and formal verification coverage |
 | Known-vector sweep | Curated Solana attack-vector checklist |
-| Code maturity assessment | 9-category engineering-quality scorecard |
+| Code maturity assessment | 11-category engineering-quality scorecard (gated tiers) |
 
 ### 3.4 Human-in-the-Loop vs. Automated
 
@@ -830,36 +830,40 @@ For Open findings, leave Fix Commit as "—" and note "pending client triage".
 ## 8. Code Maturity Assessment
 
 <!--
-Engineering-quality scorecard, orthogonal to finding severity. 9 categories,
-each scored 0-4 (0 absent · 1 ad-hoc · 2 partial · 3 good · 4 strong),
-weakest-link. This drives the maturity narrative in §1.3. Cite evidence.
+Engineering-quality scorecard, orthogonal to finding severity: the 11 categories
+of FULL-AUDIT Phase 4.5, each rated with its gated tiers (WEAK / MODERATE /
+SATISFACTORY / STRONG). This drives the maturity narrative in §1.3. Cite evidence.
+A category that could not be evaluated is "not assessed: <reason>", never a
+default rating.
 
 A category may additionally be annotated "Further Investigation Required" (FIR) —
-distinct from a low score. Use FIR when the engagement could NOT reach a confident
+distinct from a low rating. Use FIR when the engagement could NOT reach a confident
 verdict for that category (e.g. code arrived late, area was out of the time box,
-or a dependency was closed-source), so the reader knows a low/blank score reflects
-LACK OF COVERAGE, not observed weakness. A category can be, say, provisionally 3
-but flagged FIR because coverage was partial.
+or a dependency was closed-source), so the reader knows a low/blank rating reflects
+LACK OF COVERAGE, not observed weakness. A category can be, say, provisionally
+SATISFACTORY but flagged FIR because coverage was partial.
 -->
 
-Each category is rated **0–4**: 0 = absent · 1 = ad-hoc · 2 = partial ·
-3 = good · 4 = strong (weakest-link scoring). The **FIR** column flags
-"Further Investigation Required" — a coverage gap distinct from a low score.
+Each category is rated **WEAK / MODERATE / SATISFACTORY / STRONG** against the
+gated criteria of the auditor's methodology (a single unmet WEAK criterion makes
+the category WEAK). The **FIR** column flags "Further Investigation Required" — a
+coverage gap distinct from a low rating.
 
-| # | Category | Score (0–4) | FIR? | Evidence (file:line / artifact) | Gap to Next Level |
-| - | -------- | :---------: | :--: | ------------------------------- | ----------------- |
-| 1 | Access Controls | {0-4} | {yes/no} | {...} | {...} |
-| 2 | Arithmetic | {0-4} | {yes/no} | {...} | {...} |
-| 3 | Account & Type Safety | {0-4} | {yes/no} | {...} | {...} |
-| 4 | Input Validation | {0-4} | {yes/no} | {...} | {...} |
-| 5 | Testing | {0-4} | {yes/no} | {...} | {...} |
-| 6 | Fuzzing & Property Tests | {0-4} | {yes/no} | {...} | {...} |
-| 7 | Error Handling & DoS Resilience | {0-4} | {yes/no} | {...} | {...} |
-| 8 | Upgradeability & Governance | {0-4} | {yes/no} | {...} | {...} |
-| 9 | Monitoring & Incident Response | {0-4} | {yes/no} | {...} | {...} |
-| | **Overall Maturity** | **{X.X} / 4.0** | | | |
+| # | Category | Rating | FIR? | Evidence (file:line / team answer) | Gap to Next Tier |
+| - | -------- | :----: | :--: | ---------------------------------- | ---------------- |
+| 1 | Access Controls | {tier} | {yes/no} | {...} | {...} |
+| 2 | Arithmetic | {tier} | {yes/no} | {...} | {...} |
+| 3 | Account & Type Safety | {tier} | {yes/no} | {...} | {...} |
+| 4 | Input Validation | {tier} | {yes/no} | {...} | {...} |
+| 5 | Testing | {tier} | {yes/no} | {...} | {...} |
+| 6 | Fuzzing & Property Tests | {tier} | {yes/no} | {...} | {...} |
+| 7 | Error Handling & DoS Resilience | {tier} | {yes/no} | {...} | {...} |
+| 8 | Upgradeability & Governance | {tier} | {yes/no} | {...} | {...} |
+| 9 | Event emission & emergency controls | {tier} | {yes/no} | {...} | {...} |
+| 10 | Documentation | {tier} | {yes/no} | {...} | {...} |
+| 11 | Complexity | {tier} | {yes/no} | {...} | {...} |
 
-<!-- Categories scoring <= 1 warrant priority attention regardless of whether a
+<!-- Categories rated WEAK warrant priority attention regardless of whether a
      specific finding was written against them. Categories flagged FIR should be
      called out in §1.3 and, where actionable, in Key Takeaways — the client may
      wish to commission a follow-up pass on them. -->

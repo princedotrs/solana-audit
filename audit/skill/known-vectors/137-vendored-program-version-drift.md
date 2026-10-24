@@ -74,3 +74,5 @@ solana program show <PROGRAM_ID>   # upgrade authority: tenant multisig, vendor 
 - ⚠️: Provenance known and current, but no advisory subscription / patch SLA, or the inherited admin surface has never had its own review, or fleet siblings are unknown
 - ❌: The deployment runs a version with a known upstream fix it has not applied, or an inherited authority-grant instruction is reachable via an unbound off-chain-signed bundle, or the vendor's single hot key can upgrade the tenant's program
 - N/A: All in-scope programs are first-party original code and no vendor program is integrated via CPI
+
+**See also:** fork detection and diff order: FULL-AUDIT 0.1d. Framework crate advisories (not program forks): KV-158.

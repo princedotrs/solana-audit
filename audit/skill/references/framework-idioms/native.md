@@ -52,6 +52,10 @@ grep -rn -E "try_from_slice|from_bytes|from_account" programs/
 grep -rn -E "sysvar::|::ID|find_program_address|create_program_address" programs/
 ```
 
+**The owner check reads `AccountInfo::owner`, never a deserialized field.** A field inside account data is attacker-controlled whenever the account is not yet trusted, so `cfg.owner == program_id` after unpacking is circular. Also compare against the **right** constant (`spl_token::ID`/Token-2022 for token accounts, `program_id` for program state) and enforce it (return an error; a `msg!` or a discarded comparison is not a check). `info.owner` (owning program) and an unpacked `token.owner` (wallet) are different things — swapping them yields a check that is wrong in both directions. Grep also: `*ai.owner != *program_id`, reversed operand order, Pinocchio `is_owned_by()` (≤ 0.9) / `owned_by()` (≥ 0.10) and `owner()`.
+
+*Sources: Neodyme "Common Pitfalls" [paraphrased, © Neodyme AG, https://neodyme.io/en/blog/solana_common_pitfalls]; crytic/solana-lints `missing_owner_check` tests [paraphrased, https://github.com/crytic/solana-lints].*
+
 ---
 
 ## 2. `TryFrom<&[AccountInfo]>` — the accounts-validation idiom
@@ -153,19 +157,60 @@ These are the other checks Anchor gives for free that a native program must impl
 - **Checked arithmetic** on all value math (`checked_add`/`sub`/`mul`, division-by-zero
   guard) — native has no `overflow-checks` safety net at runtime in release unless set.
 - **No `unwrap()` / `expect()` / `panic!`** in handlers — they abort the program.
-- **Secure close sequence** — zero data (`realloc(0, false)`), drain lamports to a **trusted**
-  recipient, reassign owner to System Program. Skipping realloc/reassign enables
-  revival/re-init.
+- **Secure close sequence** — truncate data to length 0 (`resize(0)`; `realloc(0, false)` on
+  older SDKs), drain lamports to a **trusted** recipient, reassign owner to System Program
+  (§8). Skipping resize/reassign enables revival/re-init.
 - **Duplicate mutable account check** — two writable accounts that may alias the same key
-  must be rejected (Anchor 0.31+ does this automatically; native must do it by hand).
+  must be rejected (Anchor ≥ 1.0.0 does this automatically for its serialize-on-exit account
+  types; native must do it by hand).
 
 ```
 grep -rn -E "data_len\(\) *<|\.len\(\) *<" programs/          # length guards before deserialize
 grep -rn -E "find_program_address|create_program_address" programs/
 grep -rn -E "checked_add|checked_sub|checked_mul|checked_div|\+|\-|\*" programs/  # any raw arithmetic on value math?
 grep -rn -E "unwrap\(\)|expect\(|panic!" programs/*/src
-grep -rn -E "realloc\(0|assign\(" programs/                   # close sequence completeness
+grep -rn -E "realloc\(0|resize\(0|assign\(" programs/        # close sequence completeness
 ```
+
+---
+
+## 6. SPL parsing helpers — what each checks (none checks the owner)
+
+| Helper | Length rule | Initialised check | Token-2022 accounts with extensions | Owner / program check |
+|---|---|---|---|---|
+| `spl_token::state::Account::unpack` (`Pack`) | exactly 165 | rejects uninitialised | fails (length ≠ 165) → DoS for T22 | none |
+| `…::Account::unpack_unchecked` | exactly 165 | none — zeroed accounts parse | fails | none |
+| `…::Account::unpack_from_slice` | reads the first 165 bytes; **panics** on a shorter slice | none (only rejects an invalid state byte / option tag) | parses the base, ignores the extensions | none |
+| `StateWithExtensions::<Account>::unpack` (spl-token-2022 / -interface) | base + account-type byte + TLV; rejects a buffer exactly `Multisig::LEN` long | rejects uninitialised | handles both | none |
+| `Mint::unpack` | exactly 82 | rejects uninitialised | fails for T22 mints with extensions | none |
+
+Every native parse sits next to `*acc.owner == <expected token program>`; `_unchecked`/`from_slice` users reject uninitialised accounts explicitly; a program that accepts Token-2022 uses the extension-aware parser or it silently ignores `PermanentDelegate`, `TransferFee` and the rest. Never classify mint vs token account by data length (Token-2022 lengths vary; a computed length equal to `Multisig::LEN` (355) is padded by 2 bytes, `size_of::<ExtensionType>()`); classify by a successful typed unpack after the owner check.
+
+---
+
+## 7. Hand-rolled type tags and Borsh
+
+- Every account type has a **unique, non-zero** tag at offset 0, written in the same instruction that initialises the account, checked in the **one** shared loader before any field is trusted (KV-159).
+- Borsh writes an enum as a 1-byte variant index. borsh-derive 0.9/0.10 (anchor-lang 0.29–0.30 accept `>=0.9, <0.11`; 0.31–0.32 pin 0.10.3) ignores explicit discriminants (`= 3`) and writes the **declaration index**; borsh 1.x (anchor-lang 1.x, 1.5.7) refuses explicit discriminants unless `#[borsh(use_discriminant = true|false)]`, and `false` still uses declaration order. On borsh 1.x require `use_discriminant = true`; on 0.10 use an explicit `u8` tag constant or manual (de)serialisation, and treat any variant reorder as a layout break.
+- `T::try_from_slice` rejects leftover bytes, so only same-length types can cosplay through it. `T::deserialize(&mut &data[..])`, `try_deserialize_unchecked` and `bytemuck::from_bytes(&data[..size_of::<T>()])` read a **prefix**, so any longer same-owner account with matching leading bytes is accepted. Moving from `try_from_slice` to `deserialize` "to support realloc" widens the cosplay set.
+- Order is owner → tag → fields. Any field read (logging, branching, seed derivation) before the owner and tag checks is a finding candidate.
+
+---
+
+## 8. Lamport movement idioms
+
+- `system_program::transfer` / `system_instruction::transfer` debits only System-owned accounts **that carry no data** (the System Program returns `InvalidArgument` "Transfer: `from` must not carry data" before touching lamports; a non-System-owned `from` fails the runtime's lamport-debit rule). A program-owned PDA (any `init` with `space`) that holds SOL must be debited directly by the owning program, keeping rent exemption: `**from.try_borrow_mut_lamports()? -= amt; **to.try_borrow_mut_lamports()? += amt;` with checked math (Anchor ≥ 0.29 has `sub_lamports`/`add_lamports`, returning an overflow error since 0.30). Using `system_program::transfer` there makes every payout revert (CPI-031).
+- Direct lamport edits before a CPI must respect the runtime balance rule (FP-16).
+- A manual close does all three in one instruction: drain all lamports (checked add to destination), `assign(&system_program::ID)`, `resize(0)` (`realloc(0, false)` on older SDKs); reject `dst == acct`.
+
+---
+
+## 9. Point-in-time trust
+
+`acct.owner == X` proves ownership **now**. An address registered after only an owner check can later be served a different account (the account at that address must be closed and re-created — re-allocated and assigned to a program the attacker controls or can drive — so this matters only where later uses compare the key alone). At registration require owner + discriminator + expected data; at every use re-validate owner + discriminator (KV-148).
+
+<!-- verified: token program@v9.0.0 interface/src/state.rs (`unpack_from_slice` = `array_ref![src, 0, 165]` / `[src, 0, 82]`); solana-program-pack 3.1.0 src/lib.rs (`unpack_unchecked` requires `len == LEN`, `unpack` adds `is_initialized`); token-2022 program@v11.1.0 interface/src/extension/mod.rs (`adjust_len_for_multisig` adds `size_of::<ExtensionType>()`; `check_min_len_and_not_multisig`; `unpack` rejects uninitialised); anchor v0.29.0/v0.30.1/v0.31.1/v0.32.1/v1.0.0 lang/Cargo.toml borsh versions; agave v4.5.0-alpha.2 programs/system/src/system_processor.rs `transfer_verified`; anchor CHANGELOG 0.29.0 #2552, 0.30.0 #2907 -->
+*Sources: original analysis; Neodyme Token-2022 article/report [paraphrased, cited: https://neodyme.io/en/blog/token-2022]; crytic/solana-lints U4 and coral-xyz/sealevel-attacks #4 [paraphrased, cited]; OtterSec "Solana: an auditor's introduction" [paraphrased, cited: https://osec.io/blog/solana-security-intro]; solana-foundation/solana-dev-skill #7/#11 (MIT, Copyright (c) 2026).*
 
 ---
 
@@ -178,3 +223,7 @@ grep -rn -E "realloc\(0|assign\(" programs/                   # close sequence c
 - [ ] Borrows scoped/dropped before re-borrow of the same account; no simultaneous mut+immut borrow (§3)
 - [ ] After every mutating CPI, account is re-borrowed + re-deserialized before its state is reused (§4)
 - [ ] Data-length guard before deserialize; canonical bump stored + reused; checked arithmetic; no `unwrap()`; safe close sequence; duplicate-mut-account check (§5)
+- [ ] Every SPL `unpack*` sits next to a runtime owner check against the right token program; Token-2022 inputs use the extension-aware parser (§6)
+- [ ] Unique non-zero type tag checked in one shared loader; Borsh enum tags pinned; prefix-reading deserializers noted (§7)
+- [ ] PDA-held SOL paid out by direct lamport debit, not `system_program::transfer`; manual close = drain + assign + resize, `dst != acct` (§8)
+- [ ] Stored addresses re-validated (owner + discriminator) at every use, not only at registration (§9)

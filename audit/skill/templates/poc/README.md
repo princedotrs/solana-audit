@@ -116,3 +116,7 @@ single-instruction). Record it on the finding block. Other tiers and the fallbac
 ladder — Surfpool `[PoC-SIM-REPRODUCED]`, fuzz `[PoC-FUZZ-REPRODUCED]`, `[PoC-ATTEMPTED]`,
 `[PoC-PROSE]` — are defined in `references/orchestration/poc-harness.md`. A downgraded
 tier never downgrades the finding's severity; prose is never removed.
+
+## Recipes and test quality
+
+See `RECIPES.md` for reusable attack shapes (bump enumeration, same-tx close + refund, clone-program owner bypass, unsigned authority, fake config over a real vault). When judging a project's own negative tests, apply checklist 16 FV-097 (tests that cannot fail).

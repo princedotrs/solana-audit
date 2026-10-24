@@ -21,6 +21,7 @@
 | [Infrastructure](#infrastructure) | Build, deploy, upgrade authority, emergency controls |
 | [Formal Verification & Testing](#formal-verification--testing-checklist-16) | Fuzz testing, coverage, static analysis, invariants |
 | [Token, Sysvar & Modern On-Chain](#token-sysvar--modern-on-chain-kv-101109-kv-135) | Token-2022, ATA, decimals, sysvars, precompiles, ALTs, bumps, revival, Pinocchio, transaction v1 |
+| [Program Audit rg Sweeps](#program-audit-rg-sweeps-sysvars-closes-authority-unchecked-access-cpi-targets-anchor-features) | Sysvar names, manual closes, role-based authority, unchecked constructors/borrows/CPIs, `Instruction.program_id` provenance, Anchor version/features, leftovers |
 | [Scope Boundary](#scope-boundary--off-chain-code) | Off-chain code to list as out of scope |
 
 ---
@@ -401,7 +402,7 @@ grep_search: "decimals|10u64\\.pow|10\\.pow|1_000_000|1e6|1e9"   isRegexp: true 
 grep_search: "Clock::get|Rent::get"   isRegexp: true   includePattern: "programs/**/*.rs"
 grep_search: "UncheckedAccount.*[Cc]lock|AccountInfo.*[Cc]lock|Sysvar<'info,"   isRegexp: true   includePattern: "programs/**/*.rs"
 ```
-> Time/rent must come from syscalls or `Sysvar<'info, T>` — never an unchecked passed account.
+> Time/rent must come from syscalls or an id-checking accessor (`Sysvar<'info, T>`, `Sysvar::from_account_info`; FP-8) — never from the raw bytes of an unchecked passed account. Full sysvar-name sweep: [Program Audit rg Sweeps](#sysvar-spoofing-full-name-list).
 
 ### Precompile signature introspection (KV-102)
 ```
@@ -444,6 +445,67 @@ grep_search: "ComputeBudget|SetComputeUnitPrice|computeUnitPrice|micro.?lamports
 grep_search: "feePayer|fee_payer|sponsor|paymaster|gasless|partialSign"   isRegexp: true   includePattern: "apps/**/*.{ts,rs,py}"
 ```
 > Every program introspection must not gate on ComputeBudget instructions; every ComputeBudget scan must have a v1 `transactionConfig` branch; every fee-payer service must detect version on the raw bytes (`0x81`) before its cap. See `references/vuln-classes/transaction-v1.md`.
+
+---
+
+## Program Audit rg Sweeps (sysvars, closes, authority, unchecked access, CPI targets, Anchor features)
+
+> Terminal (`rg`) commands that only read files. Adjust `programs/` to the repository's program directory (native and Pinocchio repos often use `program/src` or `src/`).
+
+### Sysvar spoofing (full name list)
+```bash
+rg -n -i '(clock|rent|epoch_schedule|epoch_rewards|instructions|recent_blockhashes|slot_hashes|slot_history|stake_history|last_restart_slot|fees|rewards)(_sysvar)?\s*:\s*(AccountInfo|UncheckedAccount)' programs/
+rg -n 'load_instruction_at\s*\(|load_current_index\s*\(' programs/        # deprecated unchecked helpers (the _checked forms do not match)
+rg -n 'bincode::deserialize|(clock|rent|slot_hashes|instructions)[a-z_]*\.(data|try_borrow_data)' programs/
+```
+> A hit is a lead, not a finding. `Sysvar::from_account_info`, `Clock::from_account_info` and Anchor `Sysvar<'info, T>` check the sysvar id (FP-8). The risk is reading the raw bytes of an unchecked account.
+
+### Manual close (revival candidates)
+```bash
+rg -n '\*\*\s*[A-Za-z_][\w.()]*\.lamports\.borrow_mut\(\)\s*=\s*0\b|try_borrow_mut_lamports|sub_lamports\(|set_lamports\(0\)' programs/
+rg -n '\.assign\(|resize\(0|realloc\(0|\.close\(\)|close_unchecked\(' programs/
+```
+> `sub_lamports` is Anchor's `Lamports` trait (anchor-lang ≥ 0.29.0). `set_lamports`, `close()` and `close_unchecked()` are Pinocchio account methods (`set_lamports` from Pinocchio 0.10, which uses `solana-account-view`). Anchor's `close = target` constraint is not a manual close; review it with KV-106.
+
+### Authority by role (not name)
+```bash
+rg -n 'require_keys_eq!|require_eq!|assert_eq!|\.key\(\)\s*[!=]=|[!=]=\s*ctx\.accounts\.\w+\.key' programs/
+rg -n "AccountInfo<|UncheckedAccount<" programs/
+rg -n 'let\s+(mut\s+)?\w+\s*=\s*&?\s*ctx\.accounts\.\w+' programs/        # aliases to re-check
+```
+> An unchecked account whose key is compared with a stored authority, or with a hard-coded admin or user key (`pubkey!(..)`, `const ADMIN`), to gate a privileged action is acting as an authority and must be a signer (AC-059). Only a comparison that pins *which* account is used (a program id, a sysvar id, a stored treasury or fee destination) needs no signature.
+
+### Unchecked constructors and raw access (Anchor and Pinocchio)
+```bash
+rg -n 'try_from_unchecked|try_deserialize_unchecked|from_(bytes|account_info|account_view)_unchecked|new_unchecked' programs/
+rg -n 'borrow_(mut_)?(data|lamports)_unchecked\(|borrow_unchecked(_mut)?\(|get_unchecked(_mut)?\(|resize_unchecked\(' programs/
+rg -n 'invoke(_signed)?_unchecked\s*\(' programs/
+```
+> `Account::try_from_unchecked` / `try_deserialize_unchecked` skip the discriminator check (`try_from_unchecked` still checks the owner). pinocchio-token ≤ 0.4 names its unchecked constructors `from_account_info_unchecked`; 0.5 and later use `from_account_view_unchecked`. Pinocchio ≤ 0.9 names its unchecked borrows `borrow_data_unchecked` / `borrow_mut_data_unchecked` / `borrow_(mut_)lamports_unchecked`; Pinocchio ≥ 0.10 (`solana-account-view`) names them `borrow_unchecked` / `borrow_unchecked_mut`. `invoke_unchecked` / `invoke_signed_unchecked` skip all the validation the checked `invoke` does (account count, key match against each `AccountMeta`, borrow state) (KV-182).
+
+### Instruction program-id provenance
+```bash
+rg -nU '(Instruction|InstructionView)\s*\{[^}]*?program_id\s*:\s*\*?[\w.]+\.(key|address)\b' programs/
+rg -n 'Instruction::new_with_(bytes|borsh|bincode)\s*\(\s*\*?[\w.]+\.key\b' programs/
+rg -n "Program<'info\s*>|Program<'info,\s*\(\)\s*>" programs/
+```
+> `-U` lets the first pattern match a struct literal that spans several lines (it stops at the first `}`, so a literal whose `accounts` field contains a nested `{ .. }` before `program_id` is missed; read those by hand). `.address` covers Pinocchio ≥ 0.10 (`AccountView::address()`). The untyped `Program<'info>` (`T = ()`) exists only from Anchor 1.0.0 (and its release candidates; 0.32.2 has no default) and checks only `executable` (KV-154, CPI-030). On Anchor 1.0.0–1.0.1, `Program<'info, System>` is also checked for `executable` only, because the System id equals `Pubkey::default()` (fixed in 1.0.2; CPI-030).
+
+### Anchor version and features
+```bash
+rg -n -A1 '^name = "anchor-(lang|spl)"$' Cargo.lock
+rg -n 'no-idl|legacy_idl|lazy-account|event-cpi|default-features\s*=\s*false' programs/*/Cargo.toml programs/*/src
+rg -n 'cfg(_attr)?!?\(.*feature' programs/*/src
+```
+> Legacy IDL instructions are generated on Anchor 0.x unless the program crate's `no-idl` feature is active. Anchor 1.0.x never generates them; 1.1.x–1.2.x generate them only with `#[program(legacy_idl)]`; the 2.0.0 release candidates (rc.1, rc.2) never generate them (KV-153). Read the resolved version from `Cargo.lock`, not from `Cargo.toml`.
+
+### Leftovers
+```bash
+rg -n 'TODO|FIXME|HACK|XXX' programs/*/src
+rg -n '^\s*//\s*(require!|require_keys_eq!|assert|if |constraint|has_one|checked_)' programs/*/src
+```
+<!-- verified: anchor v0.31.1 lang/syn/src/codegen/program/dispatch.rs + handlers.rs (#[cfg(not(feature = "no-idl"))]), v1.1.0 lang/syn/src/lib.rs (legacy_idl program arg), v0.32.1 vs v1.0.0 lang/src/accounts/program.rs (Program<'info, T = ()> from 1.0.0), v0.29.0 lang/src/lib.rs (fn sub_lamports; absent in v0.28.0), v1.0.0 lang/src/accounts/account.rs (try_from_unchecked); pinocchio@v0.9.2 sdk/pinocchio/src/account_info.rs (borrow_*_unchecked, close, close_unchecked, resize_unchecked) and cpi.rs (invoke_unchecked, invoke_signed_unchecked); solana-account-view 1.0.0 (pinocchio 0.10.x: set_lamports, borrow_unchecked(_mut), close_unchecked); pinocchio-token@v0.4.0 from_account_info_unchecked vs @v0.5.0/@v0.7.0 from_account_view_unchecked; solana-account-view 1.0.0 AccountView::address(); solana-instruction-view 1.0.0 InstructionView.program_id and invoke(_signed)_unchecked ("does not perform any validation", pinocchio@v0.9.2 cpi.rs doc); anchor v1.0.0/v1.0.1 is_unit_type removed in v1.0.2; legacy IDL: v1.0.0-v1.0.3 none (#3798), v1.1.0-v1.2.1 legacy_idl, v2.0.0-rc.1/rc.2 none (separate branch); untyped Program present in v1.0.0-rc.3, absent in v0.32.2. AC-059 treats hard-coded admin-key comparisons as authority checks. Every pattern was test-run with rg on a synthetic sample. -->
+*Sources: Sealevel Sentinel (MIT, Copyright (c) 2026 Stan (stantheman0128)) with corrected close regex and sysvar list; crytic/solana-lints and Trail of Bits not-so-smart-contracts [paraphrased, cited]; CDSecurity/cdsecurity-skills (MIT, Copyright (c) 2026 CD Security); otter-sec/anchor (Apache-2.0, Copyright 2020 Anchor Maintainers). Patterns were rewritten and extended.*
 
 ---
 

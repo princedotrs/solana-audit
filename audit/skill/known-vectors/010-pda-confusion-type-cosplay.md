@@ -48,6 +48,13 @@ grep -rn --include="*.rs" "has_one" programs/*/src/instructions/
 - ✅ PASS: Accounts that reference each other use `has_one` to ensure type-correct linking
 - ❌ FAIL: Accounts can reference wrong types because has_one is missing
 
+**Step 6: Donor-overlay proof (native / Pinocchio / unchecked deserializers)**
+List donor types (a caller can create or write them without privilege) and victim reads (privileged deserializations without a tag check). Overlay byte offsets; if attacker-controlled bytes land on an authority/amount/destination field, write the PoC (call the donor instruction, then the victim with the donor account). Borsh `Vec`/`String`/`Option`/enum fields make offsets data-dependent — compute them for the donor's chosen content. Tags must be unique, non-zero, written at init and checked in one shared loader (KV-159).
+- ✅ PASS: tag/discriminator checked before any field on every privileged read
+- ❌ FAIL: an overlay puts attacker bytes on a privileged field
+
+*Sources: Neodyme "Common Pitfalls" U1 [paraphrased, cited].*
+
 **Overall verdict:**
 - ✅: All accounts use Anchor discriminators, typed with Account<>, unique PDA seeds per type
 - ⚠️: Mostly correct but 1-2 UncheckedAccounts with adequate runtime checks

@@ -144,6 +144,15 @@ grep -rn -E "/ *index|/ *index_price" programs/    # scaled before division?
 *Funding symmetry invariant:* total long-side debit == total short-side credit — the protocol must not
 silently mint/burn value via funding. Property-test it alongside OI symmetry (§2).
 
+- **Entry snapshot.** Every position records `entry_price` (and `open_ts`/`open_slot`) at open, and
+  settlement reads the stored entry, never the current price, for the entry leg. An `entry_price` that
+  was never written (`== 0`), or one recomputed from the current oracle, settles every position at zero
+  PnL or at an attacker-chosen price (ECON-097).
+- **Funding by timestamp after a restart.** Timestamp-based funding compounds across a cluster halt in
+  one step; apply the restart grace (lending.md §10).
+
+*Sources: sanbir/solana-auditor-skills B8 (MIT, Copyright (c) 2024 AI Skills Contributors); original analysis.*
+
 ---
 
 ## 4. Margin math: haircuts, IM/MM at placement AND post-settlement

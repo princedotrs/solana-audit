@@ -56,9 +56,10 @@ pass it to every `run.sh` call as
 trusts the build outputs it finds there. The `.so` files stay in the scratch copy
 (`SBF_OUT_DIR`).
 
-**Runners you write.** `templates/poc/run.sh` is the runner for the template's crate. A
-Trident or cargo-fuzz target or a Surfpool scenario has no template, so `poc-engineer`
-writes its `run.sh`, and that runner keeps both rules above. It starts with `run.sh`'s
+**Runners you write.** `templates/poc/run.sh` is the runner for the template's crate.
+cargo-fuzz targets and Surfpool scenarios have no template; Trident uses
+`templates/fuzz-trident/`; Kani proof shapes are in `templates/kani/`. None of these
+ships a runner, so `poc-engineer` writes its `run.sh`, and that runner keeps both rules above. It starts with `run.sh`'s
 mode gate, these lines verbatim, so it exits 3 before it copies or builds anything:
 
 ```bash
@@ -89,7 +90,7 @@ names a `path` toolchain runs even on a bare `cargo --version`.
 |------|--------|---------|-----------|
 | **`cargo build-sbf`** (platform-tools ≥ **v1.54** / cargo ≥ **1.85**) | `cargo build-sbf --version`, run from `${TMPDIR:-/tmp}`; check the bundled cargo ≥ 1.85 (default bundle is v1.51/cargo 1.84 and **cannot** parse the edition2024 manifests in the modern `mollusk-svm`/`litesvm` dep tree — pass `--tools-version v1.54`) | Mollusk **and** LiteSVM PoCs (both load a compiled `.so`) | No on-chain executable PoC → `[PoC-ATTEMPTED]`, keep prose. Name it: "install Agave platform-tools ≥ v1.54". |
 | **Surfpool** (CLI + MCP) | `surfpool --version` on PATH; the surfpool MCP reachable | mainnet-fork economic/oracle/MEV reproduction with a real P/L. The fork loads state from the RPC datasource it is started with (`--rpc-url` / `--network`), which receives the program ids and account addresses it fetches: the report lists that provider and what it was sent (`OUTPUT-RULES.md` Rule 11b) | No fork simulation → fall back to Mollusk/LiteSVM if the logic is modelable, else `[PoC-ATTEMPTED]`. Name it: "surfpool CLI + MCP unreachable / fork state unavailable". |
-| **Trident** (stateful SVM fuzzer) | `trident --version` on PATH | coverage-guided multi-instruction fuzzing → crash/invariant artifact | Try `cargo fuzz` (below); if neither, keep the prose invariant argument → `[PoC-ATTEMPTED]`. |
+| **Trident** (stateful SVM fuzzer) | `trident --version` on PATH | seeded, manually guided stateful flow fuzzing (Trident ≥ 0.11; coverage is reported, not used for guidance) → failing iteration **seed** (printed with the failed assertion) + `trident fuzz debug <target> <seed>` (replays that single iteration with logs); template in `templates/fuzz-trident/` | Try `cargo fuzz` (below); if neither, keep the prose invariant argument → `[PoC-ATTEMPTED]`. |
 | **cargo-fuzz** (libFuzzer unit fuzz) | `cargo fuzz --version` on PATH, run from `${TMPDIR:-/tmp}` | fuzzing a single pure function (parse/deser/math) → crashing input | If absent, a hand-written failing unit test on the boundary value is the fallback; else `[PoC-ATTEMPTED]`. |
 
 Record which gates passed in the finding's PoC block. `run.sh` in `templates/poc/`
@@ -109,7 +110,7 @@ proves it deterministically.
 | logic / access-control / **signer** / **owner** / **PDA** / **CPI-target** / arithmetic contained in **one instruction** | **Mollusk** (single `process_instruction`) | fastest, deterministic, in-process; one crafted ix against one `.so` | `[PoC-REPRODUCED]` |
 | **multi-step lifecycle** — init → mutate → withdraw; **reinit**; **close → revival**; any bug living in cross-instruction state | **LiteSVM** stateful sequence | replays an ordered instruction sequence and carries state between them, which a single-ix runner cannot | `[PoC-REPRODUCED]` |
 | **economic / oracle / MEV / first-depositor** — value depends on live pool/oracle state or ordering | **Surfpool mainnet-fork** | reproduce deposit → manipulate → withdraw against forked real state for a concrete net **P/L** figure | `[PoC-SIM-REPRODUCED]` |
-| **parse / deser / math** that is **fuzz-discoverable** (the crashing input is not obvious) | **Trident stateful** (default) or **cargo-fuzz unit** (pure function) | let the fuzzer *find* the input; emit the crashing artifact as the proof | `[PoC-FUZZ-REPRODUCED]` |
+| **parse / deser / math** that is **fuzz-discoverable** (the crashing input is not obvious) | **Trident stateful** (default) or **cargo-fuzz unit** (pure function) | let the fuzzer *find* the input; emit the failing Trident seed or the cargo-fuzz crashing input as the proof | `[PoC-FUZZ-REPRODUCED]` |
 
 Off-chain code (TS / Rust clients, indexers, keepers, backends) is out of scope for this
 skill, so it gets no harness row here: a PoC demonstrates an on-chain finding.
@@ -121,6 +122,30 @@ escalate to deductive FV (Certora/Kani) for a property a stateful fuzzer surface
 minutes, and **skip FV entirely when the instruction's outcome is decided by a CPI
 into untrusted/foreign code** — mock that boundary adversarially in Trident instead
 and note the abstention in the report's Assumptions & Simplifications.
+
+### When to choose which harness
+
+| Situation | Use |
+|---|---|
+| One instruction and one crafted account set proves it | Mollusk/LiteSVM PoC |
+| Needs ordering or accumulation across ≥ 3 instructions or ≥ 2 users (reward-debt drift, stale approval, rounding accumulation, close/revive) | Trident flows + a global invariant; then minimise the failing seed into a deterministic LiteSVM PoC (`trident fuzz debug` with logs) |
+| Native/Pinocchio program | LiteSVM + proptest (Trident's CLI refuses to run without an `Anchor.toml` in a parent directory; native programs need hand-built `Instruction`s and a stub Anchor workspace) |
+| Outcome dominated by CPI into foreign code | dumped mainnet program (`[[fuzz.programs]]` in `Trident.toml` / LiteSVM `add_program`) or an adversarial mock |
+| Re-audit / patch verification | differential seed replay (`templates/patch/VERIFICATION.md`) |
+| Pure arithmetic/state-transition property, bounded | Kani (`templates/kani/`) |
+
+### Version pitfalls that flip PoC results
+
+Pin and read the exact Mollusk / LiteSVM / Trident versions in `Cargo.lock` before trusting a pass or a fail: their defaults (rent-exemption checking, fee-payer handling, feature set) and accessor names change between minor versions — e.g. LiteSVM 0.10 exposes `get_feature_set()` while 0.17 exposes `get_feature_set_ref()`. Mismatched `litesvm` ↔ `solana-*` minor versions cause duplicate-type build failures; diagnose with `cargo tree -d`. To replay a real incident offline, seed LiteSVM/Mollusk fixtures from dumped mainnet accounts and programs (`solana account <ADDR> --output json`, `solana program dump <PROGRAM_ID> out.so`) rather than live RPC calls during the test.
+
+### Miri lane (scope)
+
+Miri checks host-native tests that call the program's Rust functions directly (processor or zero-copy code). It cannot see undefined behaviour inside a compiled `.so` executed by Mollusk/LiteSVM. Run it single-threaded on the subset of host tests that touch `unsafe`, as a separate lane.
+
+<!-- verified: Ackee-Blockchain/trident crates/cli/src/command/fuzz.rs (Debug {target, seed}); crates/fuzz/src/trident/flow_executor.rs (debug mode = single iteration with the given seed; failure message prints the current seed) -->
+<!-- verified: litesvm 0.10.0 src/lib.rs `get_feature_set`, litesvm 0.17.0 src/lib.rs `get_feature_set_ref`; trident crates/cli/src/command/mod.rs ("Anchor.toml file was not found in any parent directory"); trident documentation/docs/trident-manifest/index.md `[[fuzz.programs]]` -->
+
+*Sources: Ackee-Blockchain/trident (MIT, Copyright (c) 2021 Ackee Blockchain); solana-foundation/solana-dev-skill (MIT, Copyright (c) 2026); qedgen/solana-skills X1 (MIT, Copyright (c) 2025 QEDGen).*
 
 ---
 
@@ -137,7 +162,8 @@ rung down is a real, reportable finding — the ladder degrades gracefully to pr
         │              (economic / oracle / MEV — value needs live forked state).
         │
 [PoC-FUZZ-REPRODUCED]  A Trident / cargo-fuzz target produced the crashing or
-        │              invariant-breaking input; the corpus/crash artifact is saved.
+        │              invariant-breaking input; the failing Trident seed (replayed
+        │              with `trident fuzz debug`) or the cargo-fuzz crash file is saved.
         │
 [PoC-ATTEMPTED]        A required tool was absent (no cargo build-sbf, surfpool
         │              unreachable, fork state unavailable), the recorded execution

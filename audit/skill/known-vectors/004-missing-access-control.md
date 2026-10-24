@@ -53,8 +53,8 @@ grep -rn --include="*.rs" -iE "admin|config|treasury|authority|owner|upgrade|pau
 ```
 grep -rn --include="*.rs" "pub fn init\|pub fn initialize\|pub fn create" programs/*/src/instructions/
 ```
-- ✅ PASS: Init functions either have authority checks or are one-time-only (init constraint)
-- ❌ FAIL: Init function can be called by anyone to overwrite state
+- ✅ PASS: Init functions either check an authority that already exists (upgrade authority via a pinned ProgramData, a hard-coded admin, or a creator-namespaced PDA whose consumers resolve by the expected creator), or create only caller-scoped state (seeds include the caller)
+- ❌ FAIL: A singleton init (constant-only seeds) stores the caller as admin/fee recipient/oracle authority with no deployer gate — `init` makes it one-time, not *who-first* (KV-141); or an init can be called by anyone to overwrite state
 
 **Overall verdict:**
 - ✅: Every instruction has correct signer + constraint checks, admin functions protected, init is one-time

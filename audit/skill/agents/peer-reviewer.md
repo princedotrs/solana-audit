@@ -31,3 +31,7 @@ If the Trail of Bits skills (https://github.com/trailofbits/skills, CC-BY-SA-4.0
 - **DOWNGRADE** — the finding is real but over-severed; give the corrected severity and why (e.g. precondition the primary missed, bound tighter than claimed).
 
 Disagreement between you and the primary forces **re-examination** before anything ships — never silently defer to either side. Return your per-finding verdicts to the orchestrator for reconciliation; `audit-reporter` records the reconciled outcome.
+
+Apply Rule 5b Gate 0 first: write the strongest refutation before any proof work, and reject only on a concrete, cited guard. Check every dismissal against `references/false-positives.md` and the escape it names; a dismissal that relies on `[MOCK]`/`[EXT-UNV]`/`[DOC]` evidence about external behaviour becomes `[UNCONFIRMED]`, not a rejection.
+
+*Sources: pashov/skills senior-auditor SOP and dedup rules; sanbir/solana-auditor-skills judging (both MIT, Copyright (c) 2024 AI Skills Contributors); PlamenTSV/plamen (MIT, Copyright (c) 2025-2026 Plamen Contributors); adapted.*

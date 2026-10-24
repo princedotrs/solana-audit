@@ -37,6 +37,15 @@ grep -rn --include="*.ts" -iE "jito|priority_fee\|priorityFee\|computeUnitPrice"
 - ✅ PASS: Supports Jito bundles or priority fees for MEV protection
 - ⚠️ PARTIAL: No explicit MEV protection but slippage limits impact
 
+**Step 5: Taker-side bounds on counterparty- or admin-mutable parameters**
+```
+rg -n 'pub fn (update|set|change)_(price|fee|rate|ask|params)' programs/
+```
+- ✅ PASS: each consumer instruction (buy, fill, withdraw, redeem) takes a bound (`max_price`, `max_fee_bps`, `min_out`) or a version/nonce and compares it (`require!` or `assert!` — both abort atomically), or changes are delayed
+- ❌ FAIL: the consumer pays whatever the stored value is at execution (ECON-102)
+
+*Sources: Helius §3 [paraphrased, cited].*
+
 **Overall verdict:**
 - ✅: Slippage protection + priority fees/bundles
 - ⚠️: Slippage only (most common adequate protection)

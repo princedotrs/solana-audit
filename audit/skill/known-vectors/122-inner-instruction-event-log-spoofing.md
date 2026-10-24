@@ -44,6 +44,8 @@ grep -rn -E "'finalized'|\"finalized\"|commitment.*finalized|confirmTransaction"
 - ✅ PASS: A program cannot be induced to CPI to (or emit as) another program in a way that fabricates a legitimate-looking event; emissions accompany a real, validated state change and can't be replayed standalone
 - ❌ FAIL: An attacker can cause the program to emit / self-CPI to produce an event that a downstream consumer treats as proof of a deposit/transfer that did not occur
 
+**On-chain variant.** A hand-rolled Anchor-compatible event self-CPI handler (`EmitEvent`) that does not require the `event_authority` PDA as signer lets anyone plant forged events (pinocchio.md §6). Emitted events should carry sequence numbers (SM-083).
+
 **Overall verdict:**
 - ✅: Off-chain consumers verify finalized on-chain state and bind to transaction success — they do not trust emitted logs / inner-instruction data as authoritative; on-chain emits cannot be attacker-forged via CPI
 - ⚠️: State is checked but at a weak commitment (`processed`/`confirmed`), or logs are used as a fast path with a state re-check that has gaps

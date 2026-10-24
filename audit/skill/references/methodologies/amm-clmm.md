@@ -298,7 +298,10 @@ grep -rn -E "get_extension|TransferHook|TransferFee|PermanentDelegate|DefaultAcc
   must not change shares-per-token for the first depositor — mitigate with a minimum-liquidity lock
   (mint `MIN_LIQ` to a burn/PDA address, irretrievable), donation-aware accounting, or privileged
   init. Cross-ref `ECON-013`–`ECON-017`. (CLMM is largely immune pool-wide since shares are
-  per-position, but the same attack exists on the *first position in a fresh tick range*.)
+    per-position, but the same attack exists on the *first position in a fresh tick range*.)
+- **External valuation.** A protocol (or lender) valuing LP shares or CLMM positions must use fair
+  pricing, not pool reserves or the pool's own `sqrt_price` (oracles.md §11).
+
 
 **Auditor check**
 - ✅ PASS: `close_position` collects fees → decrements `liquidity_net` → zeroes/marks state → returns

@@ -68,3 +68,5 @@ grep -rn "upgrade_authority\|authority.*program" Anchor.toml
 - ✅: Admin powers are limited and transparent, no vault drain, no infinite mint, upgrade is secure
 - ⚠️: Admin powers are appropriate but upgrade authority is single key
 - ❌: Admin can drain vault, mint unlimited shares, or pause withdrawals permanently
+
+**See also:** behaviour that differs between simulation and execution defeats wallet previews (OPS-095).

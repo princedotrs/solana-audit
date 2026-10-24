@@ -95,6 +95,24 @@ grep -rn -E "exchange_rate|collateral_exchange_rate|one_collateral_token|receipt
 grep -rn -E "round|floor|ceil|/ *exchange|as u64" programs/ | grep -iE "collateral|liquidity|debt"
 ```
 
+**Decimal-library rounding helpers.** In code derived from SPL token-lending (`Decimal`/`Rate`),
+`try_round_u64()` rounds half-up and is the wrong choice for value conversions. Pick the direction at
+each call site from who receives value. What the protocol pays out or credits (liquidity out,
+collateral minted on deposit: `liquidity_to_collateral` on deposit floors) uses `try_floor_u64`. What
+the protocol receives (repaid debt, collateral burned to deliver a user-requested amount, fees) uses
+`try_ceil_u64`.
+
+```
+rg -n "try_round_u64|try_round|round_u64|\.round\(\)|to_imprecise\(" programs/
+rg -n "fn (collateral_to_liquidity|liquidity_to_collateral|exchange_rate|repay|borrow_amount|shares_to|to_shares)" programs/
+```
+
+Size the attack by amplification. An attacker program can loop CPIs inside one instruction, so the
+ceiling is compute (at most 1.4M CU per transaction, minus CPI overhead) times the number of
+transactions, not transaction size. Canonical case: Neodyme's SPL token-lending disclosure. The fix
+replaced `round` with `floor` (PR #1883); Solend, Tulip and Larix patched, and Port had already
+applied part of the draft fix.
+
 ---
 
 ## 3. Oracle integration — six dimensions, all mandatory
@@ -189,15 +207,15 @@ grep -rn -E "break|Pubkey::default\(\)|default\(\)" programs/    # closed-slot s
 - **Permissionless completeness (no DoS).** Any liquidatable position must be liquidatable by an
   anonymous caller at bounded cost — no whitelisted-liquidator gate, no required global state, and no
   way for the target to block their own liquidation (freeze their token account, DoS the price
-  refresh, or inject a **Token-2022 transfer hook** that reverts/reenters).
+  refresh, or rely on a **Token-2022 transfer hook** that reverts (hooks cannot re-enter)).
 - **Self-liquidation == external.** Self-liquidation must be allowed (economically neutral) and must
   produce the **same** outcome as external liquidation modulo fees.
 
 **Auditor check**
 - ✅ PASS: liquidation refreshes + re-reads oracles in-tx; partial path re-checks health each call;
-  bonus is checked-math, bounded, and rounds within a cap; the path is permissionless with a
-  reentrancy guard for Token-2022 sources; `self_liquidate(o) == liquidate(o, attacker)` (mod fees)
-  is tested.
+  bonus is checked-math, bounded, and rounds within a cap; the path is permissionless with hook mints
+  allowlisted and a reverting hook unable to block liquidation; `self_liquidate(o) == liquidate(o,
+  attacker)` (mod fees) is tested.
 - ❌ FAIL: liquidation on a cached price; no health re-check between partial calls; unbounded/overflow-
   prone bonus; a whitelist or hook-DoS that can block liquidation; self-liquidation on a different
   code path with a different outcome.
@@ -215,12 +233,18 @@ grep -rn -E "self_liquidat|is_signer" programs/    # self-liquidation path ident
 ## 6. Flash-loan atomicity & side-path state re-check
 
 A flash loan borrows at the start and must repay + fee before the instruction sequence ends,
-**checked after all callbacks return** — no mid-flight exit. Two additions specific to Solana:
+**checked after all callbacks return** — no mid-flight exit. Three additions specific to Solana:
 
-- **Token-2022 reentrancy.** A transfer hook on the borrowed asset can re-enter the lending program
-  mid-flash-loan. Set a reentrancy-guard flag before any transfer and verify the balance invariant
-  *after* all CPI returns (not on the last write before transfer). Reject hook mints from
-  flash-loanable assets unless allowlisted.
+- **Token-2022 hooks.** A transfer hook cannot re-enter the lending program (indirect reentrancy is
+  rejected), but it is untrusted code running mid-flow. It can consume CU, revert (DoS of
+  repay/liquidation), read stale state and act on third programs. Verify the balance invariant after
+  all CPIs return, and reject hook mints from flash-loanable assets unless allowlisted. An "in-flight"
+  flag is useful as a **cross-instruction** guard (every mutator rejects while a flash loan is open),
+  not as protection against hook re-entry.
+- **Introspection-based flash loans** (borrow and repay as separate top-level instructions): see
+  KV-151. CPI entry is rejected by stack height. The *first* later instruction to this program must be
+  `repay` for the same reserve/obligation with amount ≥ principal + fee. Every mutator that can run in
+  between checks the in-flight flag, and the Instructions sysvar is address-pinned.
 - **Side-path state re-check (the MarginFi class).** Any state a flash loan can touch on a *side
   path* — a health check, an account balance, an accounting field read by another instruction inside
   the same tx — must be re-validated after the callback, not assumed from before it. The exploit
@@ -228,8 +252,9 @@ A flash loan borrows at the start and must repay + fee before the instruction se
   value that is no longer true.
 
 **Auditor check**
-- ✅ PASS: the borrow-balance invariant is checked after **all** callbacks; a reentrancy flag guards
-  the reserve/obligation across transfers; hook mints are excluded from flash-loanable assets or
+- ✅ PASS: the borrow-balance invariant is checked after **all** callbacks; an in-flight flag blocks every mutator
+  that can run between borrow and repay (withdraw, borrow, transfer/migrate account, close, liquidate,
+  set-authority) while a flash loan is open; hook mints are excluded from flash-loanable assets or
   allowlisted; any side-path-reachable state is re-read post-callback.
 - ❌ FAIL: repayment checked before a callback can run; balance validated on the pre-transfer write;
   a side-path value trusted across the flash-loan callback; hook mint flash-loanable with no guard.
@@ -335,10 +360,27 @@ grep -rn -E "maturity|expiry|principal_token|yield_token|pt_|yt_|discount" progr
 - **Upgrade authority** — immutable or behind a multi-day timelocked multisig. A `set_upgrade_authority`
   by anyone but the timelock-controlled multisig is a P0.
 - **Authority split** — program-upgrade vs parameter-change vs treasury are separate authorities.
+- **Accrual during pause.** If pause blocks repay and top-up while `accrue_interest` keeps counting
+  `now − last_accrual`, borrowers are liquidatable at unpause for debt they could not service (KV-173).
+  The options are a design choice that must be documented: reset `last_accrual` on unpause (lenders
+  forgo interest for the pause), cap or defer interest accrued while paused, or allow repay while
+  paused. Liquidation/auction grace timers must not count paused time.
+- **Restart grace.** After a cluster halt, `Clock.unix_timestamp` jumps forward while few slots pass.
+  Time-based accrual compounds across the outage, slot-based and time-based oracle freshness disagree,
+  and users could not top up. Liquidations in the first `RESTART_GRACE_SLOTS` after the last restart
+  should be paused or limited to a hard health floor. Read the restart slot with
+  `LastRestartSlot::get()?.last_restart_slot` (solana-program ≥ 1.18, SIMD-0047, feature
+  `last_restart_slot_sysvar`).
+- **LP-token collateral** is priced with a fair (invariant-based) LP price, never live reserves × oracle
+  prices (oracles.md §11).
+
+<!-- verified: agave v1.18.26 sdk/program/src/sysvar/last_restart_slot.rs (impl_sysvar_get!(sol_get_last_restart_slot)); agave v3.0.0 feature-set/src/lib.rs last_restart_slot_sysvar -->
 
 ```
 grep -rn -E "paused|pause|emergency|set_upgrade_authority|upgrade_authority" programs/
 ```
+
+*Sources: PlamenTSV/plamen and qedgen/solana-skills (MIT); solana-foundation/solana-dev-skill #2 (MIT, Copyright (c) 2026); Neodyme lending disclosure via solsec [paraphrased, cited: https://neodyme.io/blog/lending_disclosure]; SlowMist best practices U4 (Apache-2.0, attributed to SlowMist), paraphrased; Helius article §2 [paraphrased, cited], with a per-call-site rounding rule; sanbir/solana-auditor-skills B4 (MIT, Copyright (c) 2024 AI Skills Contributors); original analysis.*
 
 ---
 
@@ -349,7 +391,7 @@ grep -rn -E "paused|pause|emergency|set_upgrade_authority|upgrade_authority" pro
 - [ ] Oracle gate enforces identity-pin + owner + staleness + confidence; thin assets use TWAP; `max(spot,TWAP)` collateral / `min` debt; stablecoin clamp (§3)
 - [ ] Health holds continuously incl. mid-CPI (`.reload()`) and at oracle bounds; closed slots skipped not `break`ed (§4)
 - [ ] Liquidation: in-tx refresh+re-read; partial-reentry health re-check; bounded bonus rounding; permissionless & hook-DoS-proof; self==external (§5)
-- [ ] Flash loan: balance invariant checked after **all** callbacks; reentrancy guard; hook mints excluded; side-path state re-checked (§6)
+- [ ] Flash loan: balance invariant checked after **all** callbacks; in-flight flag on in-between mutators; introspection pairing (KV-151); hook mints excluded; side-path state re-checked (§6)
 - [ ] Solvency invariant property-tested; utilization/borrow/supply caps in code; permissionless converging bad-debt path exists (§7)
 - [ ] LTV/threshold: timelock + hard `MIN`/`MAX` in the setter + event; multisig authority, split roles (§8)
 - [ ] Token-2022 extensions classified/allowlisted, fee-on-transfer delta-accounted; PT/YT collateral maturity-discounted & pinned-oracle-priced (§9)

@@ -59,3 +59,5 @@ grep -rn --include="*.rs" -iE "callback|program_id|invoke|cpi|remaining_accounts
 - ⚠️: Parameters frozen and price-bound correct, but ordering is keeper-controlled without a proven value impact, or the no-pending-request assertion is implied by flow rather than explicitly checked.
 - ❌: A pending request is user-mutable (free option), OR the keeper can execute at a stale/unbound price, OR close/claim runs with an in-flight request (double-spend / rent theft), OR the callback program id / request ordering is keeper-controlled.
 - N/A: Single-transaction order flow with no request→keeper-execute split.
+
+**See also:** protocol-level parameters read live at execute: KV-172.

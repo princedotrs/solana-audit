@@ -50,6 +50,16 @@ grep -rn --include="*.rs" -A20 "ctx.remaining_accounts" programs/*/src/instructi
 - ✅ PASS: All remaining_accounts are deserialized with owner check
 - ❌ FAIL: remaining_accounts used without owner verification
 
+**Step 6: Presence is not correctness**
+```
+rg -n '\.owner\s*(!=|==)' programs/
+rg -n 'key\s*(!=|==)\s*[a-z_.]*\.owner\b|\.owner\s*(!=|==)\s*[a-z_.]*\.key\b' programs/
+rg -n "Signer<'info>" -B2 -A2 programs/ | rg 'try_borrow_data|data\.borrow|try_from_slice'
+```
+- ❌ FAIL: the check reads a deserialized field; compares the wallet with the owning program (`auth.key != tok.owner`); compares with the wrong constant; is read but not enforced (`msg!`, `let _ =`); deserializes state from a `Signer` account; relies on `try_deserialize` (discriminator only) for provenance — a clone program's same-named struct passes (PoC: `svm.set_account(fake, owner: attacker_pid, data: [sha256("account:Vault")[..8], ...])`)
+
+*Sources: crytic/solana-lints U5, Solana Foundation course U3/U7, Neodyme U4 [paraphrased, cited].*
+
 **Overall verdict:**
 - ✅: All accounts typed with Account<>, UncheckedAccounts have runtime checks, remaining_accounts validated
 - ⚠️: Mostly typed but some remaining_accounts have weak validation

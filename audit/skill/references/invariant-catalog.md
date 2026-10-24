@@ -157,9 +157,53 @@ A registry (token list, canonical-asset mapping, risk score) is an off-chain ide
 
 ---
 
+## 8. Round-trip & cycle invariants (complements §1, which already has `deposit(x); withdraw_all() <= x`)
+
+- **Reverse then forward gives no free shares (measured in shares):** redeem `s` shares for assets `a`, then deposit `a`; the shares received are ≤ `s`.
+- **Repeated-cycle dust extraction (mandatory for vaults and pools):** N cycles of `deposit(X) → withdraw(all)` never increase the actor's balance. Test X ∈ {1, 2, 10^decimals − 1, u64::MAX / 2}, and repeat with a donated (inflated) exchange rate.
+- **Commutativity:** `A.ix → B.ix` and `B.ix → A.ix` by different users give each user the same value up to a stated rounding bound. Order dependence a party controls (bundles) is extractable value.
+- **View/execute equivalence:** every `quote_*` / `simulate_*` / `get_*` instruction, return-data helper and official SDK math returns exactly what the matching execute instruction applies (penalties, fees and accrual terms are the usual omission).
+- *Assert:* proptest on the pure math (seeded vault, shares and assets rounded down), LiteSVM/Mollusk or Trident for the full transaction path.
+
+---
+
+## 9. Seam invariants (properties that need two lenses at once)
+
+- *precision × invariant:* `Σ position.shares == pool.total_shares` holds per deposit, but per-deposit floor rounding with full-amount crediting drifts until the last withdrawer cannot exit.
+- *boundary × precision:* `fee = amount * bps / 10_000` is 0 below `10_000 / bps`; splitting an operation into many instructions (bounded by the 1232-byte transaction and the compute budget, and repeatable across transactions) avoids the fee entirely.
+- *boundary × invariant:* `repay(0)` / `claim()` with nothing pending returns before `last_accrual` updates (or updates without accruing) — interest for the period disappears.
+- *three-way:* a liquidation bonus that rounds to 0 for dust positions leaves them unliquidated; bad debt grows.
+- **Σf(segment) ≠ f(Σ):** compounding per crank segment differs from one accrual over the span; splitting cranks changes debt.
+
+---
+
+## 10. Mechanical invariants (checkable from state diffs alone, no spec)
+
+After every instruction a harness can assert: (1) no fuzzer-controlled account gains lamports unexpectedly; (2) total lamports across touched accounts are conserved; (3) no account's owner changes unexpectedly; (4) no account's discriminator/type changes; (5) a closed account is fully scrubbed (lamports 0, owner System, data empty); (6) no live account drops below rent exemption; (7) a realloc never exposes non-zero tail bytes; (8) SPL token balances are conserved across the instruction except for explicit mint/burn, whose delta must equal the mint's supply change; for Token-2022 mints with `TransferFee`, count the `withheld_amount` in token accounts and in the mint as part of the total (a fee-bearing transfer credits the destination `amount − fee`, and `WithdrawWithheldTokens*` raises an `amount` with no mint), and leave confidential-transfer balances out of the sum (they are encrypted), handling `Deposit`/`Withdraw` as explicit moves. (2) and (6) are also enforced by the runtime: lamport imbalance fails the instruction, and a transition into a rent-paying state fails the transaction. If (6) fails in the harness post-state, the harness (e.g. an instruction-level run) skipped the transaction-level rent check. On a real cluster that same input makes the transaction fail. Re-run it through a transaction-level harness and judge it as a possible liveness/DoS finding (e.g. a payout path that always leaves a PDA below rent exemption can never succeed), not as harness noise. Program faults (`require!`, overflow, `unwrap`) appear as failed transactions that this suite cannot see — they need reproducers.
+
+---
+
+## 11. Additional per-domain invariants
+
+- **Return to zero (Token/Vault):** when share supply reaches 0, all residual value (accrued rewards, locked profit, fees, high-water marks, token-account dust) is either 0 or not claimable by the next minter (KV-161).
+- **Payout ≤ principal (Vesting/Streaming):** Σ payouts ≤ recorded principal, checked at the boundary (`now ≥ end`, last period); `unlocked(start) == 0` unless a documented cliff/tranche; `unlocked(end) == total`; monotone in time (KV-176).
+- **Owner rotation (all):** after an owner/authority change, no principal other than the new owner holds rights over the object (delegate, operator, session key, close authority, pending claim) (AC-061).
+- **Upgrade readability (all):** every live account is readable by the deployed binary, or rejected cleanly and migratable (KV-160).
+- **Liveness of distribution (all):** no recipient-controlled account state can revert a settlement, liquidation or distribution that pays others (KV-169).
+
+---
+
+## 12. Reaching the state
+
+Each invariant needs a harness that can *reach* the violating state. Use the flow recipes in `templates/fuzz-trident/RECIPES.md` (account-pool mixing, state injection, time flows) and mark each invariant "fuzz/proptest" or "prove" (Kani shapes in `templates/kani/`).
+
+*Sources: pashov/skills `fizz` round-trip analyst and gap lenses (MIT, Copyright (c) 2024 AI Skills Contributors), adapted and narrowed; qedgen/solana-skills X2 (MIT, Copyright (c) 2025 QEDGen); PlamenTSV/plamen `zero-state-return` (MIT, Copyright (c) 2025-2026 Plamen Contributors); SlowMist best practices (Apache-2.0, attributed to SlowMist), paraphrased; Ackee-Blockchain/trident (MIT, Copyright (c) 2021 Ackee Blockchain); workersio/skills (MIT, Copyright (c) 2026 workers.io).*
+
+---
+
 ## Instantiation checklist (fast pass)
 
-- [ ] Identify the protocol class(es) — pull the matching menu(s); a blend pulls from several (§1–§6)
+- [ ] Identify the protocol class(es) — pull the matching menu(s); a blend pulls from several (§1–§7); add the cross-class §8–§11 sets
 - [ ] For each candidate invariant, keep only those whose violation is a real finding for *this* target; drop N/A
 - [ ] Add target-specific invariants from `context-builder`'s per-function work (Phase 0.5)
 - [ ] Mark each as **fuzz/proptest** (broad, no proof) vs **prove** (Certora/Kani — reserve for the 3–10 catastrophic ones)

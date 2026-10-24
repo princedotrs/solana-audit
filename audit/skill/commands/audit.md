@@ -1,7 +1,7 @@
 ---
 name: audit
 description: Full scope-gated security audit of a Solana on-chain program repository (Rust / Anchor / native / Pinocchio) — discovery, context reconstruction, per-item checklist verdicts, false-positive validation, and a severity-ranked report.
-argument-hint: "[path] [--scope full|program]"
+argument-hint: "[path] [--scope full|program|opsec]"
 allowed-tools: Read, Grep, Glob, Bash, Task
 ---
 

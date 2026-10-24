@@ -254,6 +254,6 @@ When auditing a different repository:
 
 1. **Record** the target's layout at intake (`QUESTIONS.md` Q39 scope, Q44 exclusions → `audit_<n>/intake.md` §1) instead of editing this file
 2. **Adapt** the glob patterns above if directories differ (e.g. a native or Pinocchio program with `entrypoint.rs` / `processor.rs` instead of `instructions/`)
-3. Checklists 01-07 are **generic** — they work for any Solana program (Anchor, native `solana-program`, Pinocchio)
+3. Checklists 01-07 and 23 are **generic** — they work for any Solana program (Anchor, native `solana-program`, Pinocchio); 21 adds Anchor-specific checks and 22 Token-2022 checks when their markers are present
 4. Checklists 11, 12 and 16 are **always-on** — apply to every program repository regardless of framework
 5. Off-chain code is out of scope for this skill — list it as excluded (see [Out of Scope](#out-of-scope--off-chain-code))

@@ -44,3 +44,5 @@ grep -rn -E "mut,?\s*(address\s*=|sysvar|Sysvar|program::ID|system_program|SlotH
 - ⚠️: Uses `>=` balance checks but still marks a shared/builtin account `mut` unnecessarily (fragile to a future demotion)
 - ❌: An instruction can be permanently bricked by donating lamports (RentState-transition rejection) or requires writability of an account subject to executable/demotion lamport-change rejection
 - N/A: No on-chain program, or no instruction depends on exact balances or writability of donatable/shared accounts
+
+**See also:** token-unit analogue (dust blocks CloseAccount): KV-168. Wrapped SOL donation via SyncNative: KV-163.

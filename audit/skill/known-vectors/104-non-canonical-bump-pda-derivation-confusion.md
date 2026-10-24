@@ -28,6 +28,10 @@ grep -rn --include="*.rs" -E "bump = [a-z_]+\.bump|bump,\s*$" programs/*/src/ins
 ```
 - ✅ PASS: Every access after init uses the stored canonical bump
 - ❌ FAIL: Bump re-derived or re-supplied per call (allows non-canonical variant)
+- Bump provenance: classify the last element of every `create_program_address` seed list — instruction argument with no `== find_program_address(..).1` comparison in the fn or its helpers (High); field of a Borsh-decoded instruction struct (High); account field (safe only if written from `ctx.bumps`/`find_program_address` at an `init` that used `seeds` + bare `bump`). A stored canonical bump with `create_program_address` is recommended, not a finding.
+- PoC recipe: enumerate `b in 0..=255`, keep bumps where `create_program_address` succeeds (about half), call create+claim per bump; fixed code allows exactly one (templates/poc/RECIPES.md).
+
+*Sources: crytic/solana-lints U1 [paraphrased, cited]; Sealevel Sentinel (MIT, Copyright (c) 2026 Stan (stantheman0128)); Solana Foundation course U7/U8 [paraphrased, cited]; CDSecurity note.*
 
 **Step 4: Verify one-per-entity invariants hold under non-canonical bumps**
 - For "one position per user", "one vault per fund", etc.: confirm a second non-canonical PDA cannot be initialized for the same seeds

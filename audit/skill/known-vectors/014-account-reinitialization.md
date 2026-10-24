@@ -40,8 +40,10 @@ grep -rn --include="*.rs" "#\[account(init" programs/*/src/instructions/
 grep -rn --include="*.rs" "serialize\|try_borrow_mut_data\|data\.borrow_mut" programs/*/src/instructions/
 ```
 - If found: verify there's a check that the account is empty/uninitialized before writing
-- ✅ PASS: No manual serialization, or manual serialization checks `account.data_len() == 0` first
-- ❌ FAIL: Manual data write without checking if account already has data
+- ✅ PASS: Manual initialization checks that the type tag / `is_initialized` flag / **all** discriminator bytes are still zero **before** the write, sets the flag in the same write, and the owner is this program; for client-allocated accounts use `#[account(zero)]` (with `signer` or same-transaction creation — KV-142). `data_len() == 0` is valid only as an existence check when the handler itself creates the account by CPI.
+- ❌ FAIL: guard uses `data_len() == 0` on a pre-allocated account; guard polarity is inverted (`if !state.is_initialized { return Err }` blocks the first init and permits re-init — the sealevel-attacks `4-initialization/secure` example has this bug: `if !user.discriminator { return Err(..) }`); <!-- verified: coral-xyz/sealevel-attacks @24555d0 programs/4-initialization/secure/src/lib.rs --> flag never set; only a "second call fails" test exists (FV-098)
+
+*Sources: coral-xyz/sealevel-attacks (repo `programs/4-initialization`) [paraphrased, cited]; sannykim/solsec #2 [paraphrased, cited].*
 
 **Overall verdict:**
 - ✅: All init uses Anchor `init` constraint, no `init_if_needed`, no manual serialization

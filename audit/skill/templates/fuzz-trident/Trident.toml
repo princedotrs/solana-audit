@@ -1,0 +1,15 @@
+[fuzz.metrics]
+enabled = true          # per-tx success/fail/panic counters; needed for panic exit codes and flow-starvation checks
+dashboard = true        # saves an HTML dashboard after the session; serve it with `trident server`
+[fuzz.regression]
+enabled = true          # saves hashes of accounts tracked with track_account_regression(); diff runs with `trident compare` (patch verification)
+[[fuzz.programs]]       # the program under test (the generator writes this entry)
+address = "<program id>"
+program = "../target/deploy/<program_name>.so"
+[[fuzz.programs]]       # dumped mainnet program for a CPI dependency
+address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+program = "metaplex-program/metaplex-token-metadata.so"
+[[fuzz.accounts]]       # dumped account fixture (oracle, config, guardian set ...)
+address = "<pubkey>"
+filename = "tests/accounts/<name>.json"
+# CI: trident fuzz run <target> --with-exit-code   (exit 99 on a failed assertion or a counted panic)

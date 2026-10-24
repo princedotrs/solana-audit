@@ -71,7 +71,7 @@ cross-reference from the worksheets (§2) and the fast-pass checklist.
 | **B7** | **Payload integrity & bounded parsing** — every byte is length-checked; integer fields use `try_into` with explicit error paths; no `unwrap`, no `as` truncation, no length×element-size overflow; endianness is explicit (EVM-origin big-endian vs Solana-origin little-endian) | Silent data corruption / parser panic-DoS |
 | **B8** | **Decimal / amount normalization across chains** — token amounts are normalized between source-chain and Solana-mint decimals with the correct direction and rounding; Token-2022 transfer-fee amounts are accounted at the right boundary (net received ≠ gross sent) | Value inflation/deflation on the wire |
 | **B9** | **sigVerify-precompile alignment & instruction-introspection correctness** — when using ed25519/secp256k1 precompiles (which return no result), the program reads the **pinned** Instructions sysvar, confirms the precompile ran at a **validated** index with the **expected message hash + pubkey**, and follows SIMD-0152 strict-mode behavior | Verification bypass (the Wormhole class) |
-| **B10** | **Sysvar-account-substitution rejection** — every sysvar (`Instructions`, `Clock`, `Rent`) is typed `Sysvar<'info,T>` or its address is asserted equal to the canonical sysvar ID; never an unchecked `AccountInfo`. **The exact Wormhole primitive** | Attacker-supplied "sysvar" → forged verification |
+| **B10** | **Sysvar-account-substitution rejection** — every sysvar account is id-checked: `Clock`/`Rent` via `Sysvar::get()` or `Sysvar<'info, T>`; the Instructions sysvar (which has no `Sysvar` impl) via `#[account(address = sysvar::instructions::ID)]` on an `UncheckedAccount` and the `_checked` load helpers; never raw bytes from an unchecked `AccountInfo`. **The exact Wormhole primitive** | Attacker-supplied "sysvar" → forged verification |
 | **B11** | **Token mint authority restricted** — only the bridge program (PDA-signed) can mint wrapped tokens; the mint-authority PDA is derived from `(bridge_program, original_token, source_chain)`; freeze authority is that PDA or explicitly `None`; authority transfer is governance-gated (timelock + multisig) | Unbounded wrapped-supply inflation |
 | **B12** | **Signature-set account discipline** — when verification spans transactions (`verify_signatures` → `post_vaa`), the signature-set account is **per-VAA, fresh, owned by the bridge, and bound to the VAA hash** it authenticates; it cannot be replayed across VAAs. **The stale-`SignatureSet` reuse in the Wormhole exploit** | Reuse of a prior tx's verified signatures |
 | **B13** | **Relayer/solver cannot forge or misdeliver** — an untrusted relayer only *transports*; it cannot alter payload, recipient, or amount, cannot pick which signer-set is used, and cannot redirect delivery. For intent/liquidity bridges, the fill is validated against the signed intent and repayment is bound to a verified source-chain settlement | Relayer steals / redirects value |
@@ -108,9 +108,16 @@ Each worksheet lists the safe shape. FAIL if any line is missing on any reachabl
   expected; payload size bounded (B7). **Hyperlane:** the recipient's ISM verified; replay is tracked
   per origin chain.
 
+<!-- verified: agave v2.1.0 sdk/program/src/sysvar/instructions.rs (`pub struct Instructions();` has no `Sysvar` impl, so `Sysvar<'info, Instructions>` does not compile) -->
+
 ### `verify_signatures` (the Wormhole-class instruction)
-- The **Instructions sysvar account is pinned** to the canonical address — typed `Sysvar<'info,_>` or
-  asserted equal (B10). *This single check is what the $326M exploit lacked.*
+- The **Instructions sysvar account is pinned** to the canonical address with
+  `#[account(address = sysvar::instructions::ID)]` on an `UncheckedAccount` (or `AccountInfo` +
+  `/// CHECK:`) and read with `load_current_index_checked` / `load_instruction_at_checked`; the
+  Instructions sysvar cannot be typed `Sysvar<'info, T>` (B10). *This single check is what the $326M
+  exploit lacked.* Wormhole lesson: the switch to the checked helpers was committed to the public
+  repository before the exploit but had not been deployed. Compare the deployed program hash with the
+  audited commit (KV-137).
 - The sigVerify precompile ran at a **validated index** with the **expected message hash and the
   guardian pubkeys**, and its program id (`ed25519_program`/`secp256k1_program`) is asserted (B9).
 - Guardian **indexes are within current-set bounds**; **no duplicate signatures**; the count meets
@@ -127,6 +134,8 @@ Each worksheet lists the safe shape. FAIL if any line is missing on any reachabl
   (B2/B3).
 - Library/config setters (LayerZero): OApp owner authorized; target address is registered and non-zero.
 
+*Sources: Trail of Bits not-so-smart-contracts/solana §3/§6 [paraphrased, AGPL-3.0, cited: https://github.com/crytic/building-secure-contracts/tree/master/not-so-smart-contracts/solana].*
+
 ---
 
 ## 3. High-density surfaces (fastest findings)
@@ -134,7 +143,7 @@ Each worksheet lists the safe shape. FAIL if any line is missing on any reachabl
 - **S1 — Signature/quorum verification (the Wormhole class).** Any bridge that splits verification
   across transactions, introspects prior instructions via sysvars, or trusts account ordering without
   explicit owner/address checks. **Audit every sysvar usage explicitly** (B9/B10/B12). Beyond `AV-069`
-  (sysvar typed) / `AV-071`–`AV-074` (introspection binds pubkey+message+index, precompile id asserted)
+  (sysvar id checked) / `AV-071`–`AV-074` (introspection binds pubkey+message+index, precompile id asserted)
   and `KV-102`: the bridge addition is that the introspected message must be the **VAA/packet body**
   and the signer set must be the **pinned current epoch**.
 - **S2 — Replay state tracking (idempotency).** Off-by-one in nonce sequencing (N+1 before N); bitmap
@@ -235,7 +244,7 @@ Work backward from what an attacker wants; each maps to invariants to break:
 - [ ] Payload bounded-parsed: `try_into`, no `unwrap`/`as` truncation, explicit endianness (B7)
 - [ ] Amounts normalized across decimals with conservative rounding; Token-2022 fee netted (B8)
 - [ ] sigVerify precompile alignment: pinned Instructions sysvar, validated index, expected hash+key, strict mode (B9)
-- [ ] Every sysvar typed `Sysvar<'info,_>` / address-asserted — **no substitutable sysvar** (B10, the Wormhole primitive)
+- [ ] Every sysvar id-checked (`get()`, `Sysvar<'info,T>`, or `address =` for the Instructions sysvar) — **no substitutable sysvar** (B10, the Wormhole primitive)
 - [ ] Wrapped mint authority = bridge PDA, governance-gated transfer, freeze PDA-or-`None` (B11)
 - [ ] Signature-set account fresh, bridge-owned, bound to its VAA hash — not replayable across VAAs (B12)
 - [ ] Relayer/solver cannot alter payload/recipient/amount or redirect delivery; fill bound to verified settlement (B13)

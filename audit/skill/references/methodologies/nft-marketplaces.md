@@ -190,7 +190,15 @@ Each worksheet lists the safe shape. FAIL if any line is missing on any reachabl
   to the program; the splits must share one direction and sum to the price (N8).
 - **S6 — Delegate-scope overflow.** A "transfer" delegate that actually carries update/burn/freeze scope
   is a seize-and-freeze primitive on non-escrow custody (N6). Enumerate the exact granted scope on every
-  MPL Core / Token-2022 delegate path.
+    MPL Core / Token-2022 delegate path.
+- **S7 — Taker-side bounds on counterparty-mutable parameters.** When a seller or admin can change a
+  stored value (`listing.price`, `fee_bps`, royalty) that a buyer's instruction consumes, the buyer's
+  instruction takes a bound (`max_price`, `max_fee_bps`) or a listing version/nonce, and the handler
+  compares it. Otherwise the counterparty updates the value in the same slot ahead of the buy
+  (priority fees, bundles). A panicking `assert!` bound protects as well as `require!`; it only gives
+  a worse error. Alternative PASS: changes take effect after a delay (KV-028, ECON-102).
+
+*Sources: Helius "A Hitchhiker's Guide to Solana Program Security" §3 [paraphrased, © Helius, cited: https://www.helius.dev/blog/a-hitchhikers-guide-to-solana-program-security], assert! claim corrected.*
 
 ---
 

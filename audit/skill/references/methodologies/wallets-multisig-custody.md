@@ -275,6 +275,31 @@ Wallet/multisig programs are **state machines with adversarial members** — tes
 
 ---
 
+## 7. Session keys (gaming / consumer apps, gum-style session tokens)
+
+1. Bounded scope: maximum amount, instruction allowlist, expiry.
+2. The owner can revoke.
+3. The signer is checked against the **stored** session key.
+4. Replay protection.
+5. A session cannot extend its own scope or expiry.
+6. Account recovery does not resurrect revoked sessions.
+7. Lamports the program moves to the session key to pay fees are capped per top-up.
+
+---
+
+## 8. Threshold sanity and passkeys
+
+- Flag 1/m (single point of failure) and m/m (liveness); prefer ⌊m/2⌋+1 unless the choice is
+  documented.
+- Passkey/P-256 flows use the secp256r1 precompile (`Secp256r1SigVerify1111111111111111111111111`,
+  SIMD-0075). Apply the KV-102 precompile rules: program id, offsets/index binding,
+  `num_signatures ≥ 1`, distinct-signer threshold (AV-111).
+- Use `templates/tx-presign-review.md` for specific transactions or proposals.
+
+*Sources: sanbir/solana-auditor-skills B9 (MIT, Copyright (c) 2024 AI Skills Contributors); solana-foundation/solana-dev-skill #13 (MIT, Copyright (c) 2026); original analysis; beriktassuly/solana-audit-skill (MIT, Copyright (c) 2026 Berektassuly).*
+
+---
+
 ## Wallets / multisig / custody checklist (fast pass)
 
 - [ ] Custody surface classified (on-chain smart account / council / passkey-recovery / MPC / SDK / hardware / embedded); off-chain items routed to 11 & 12 (§0)
@@ -291,6 +316,7 @@ Wallet/multisig programs are **state machines with adversarial members** — tes
 - [ ] Every execution attributable to its approver set on-chain (W11)
 - [ ] `set_authority` / config-authority / upgrade-authority changes quorum-gated + time-delayed; single-key hand-off acknowledged (W12)
 - [ ] Off-chain: keys never enter telemetry/analytics SDKs; deps pinned by hash; no hardware blind-signing (W13 → checklists/11, 12)
+- [ ] Session keys bounded (amount, allowlist, expiry), revocable, checked against the stored key, not self-extending; threshold neither 1/m nor m/m without rationale; secp256r1 passkey flows follow KV-102 (§7–§8)
 - [ ] Negative tests reject: stale-approval-after-rotation, approve-then-substitute-accounts, execute-twice, below-quorum, single-guardian-recovery (§6)
 
 *Public incidents referenced: Slope (2022, ~$4.5M, ~9k wallets — Sentry telemetry shipping plaintext seed

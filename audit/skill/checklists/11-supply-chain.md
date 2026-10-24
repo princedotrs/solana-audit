@@ -72,6 +72,13 @@ Run the registry-facing commands these items call for (`npm audit`, `cargo audit
 - [ ] **SC-036**: Feature flags reviewed — no unexpected features enabled
 - [ ] **SC-037**: No `[patch]` section in Cargo.toml that overrides official crates
 - [ ] **SC-038**: Build with `--release` for production — verify optimization level
+- [ ] **SC-063**: No yanked crate is pinned in `Cargo.lock`. Run `cargo audit --deny yanked` or `cargo deny check advisories` on a scratch copy; both treat yanked crates only as a warning by default.
+- [ ] **SC-064**: Exactly one version of each security-critical crate resolves (`solana-program`/split crates, `solana-pubkey`, `spl-token`, `spl-token-2022`, `anchor-lang`, `borsh`, `bytemuck`): run `awk '/^name = /{n=$3} /^version = /{print n, $3}' Cargo.lock | grep -E '"(solana-program|solana-pubkey|spl-token|spl-token-2022|anchor-lang|borsh|bytemuck)"' | sort | uniq`, then flag names listed twice. `cargo tree -d` on the host target may include host-only dependencies.
+- [ ] **SC-065**: Dependencies heavy in `unsafe` (zero-copy, serialization, collections) are named and justified (`cargo geiger`, informational). Niche crates whose `verify`/`sign`/collection logic the program trusts get the trust-surface dependency walk (FULL-AUDIT Step 1.5 P8).
+- [ ] **SC-066**: Program binaries vendored for tests or local validators (Token-2022, Metaplex, oracles) match the versions on the target cluster. An old Token-2022 `.so` silently changes CPI Guard and extension behaviour (KV-137).
+- [ ] **SC-067**: `cargo deny check bans sources` (or an equivalent) rejects `git` sources and duplicate security-critical crates, or each exception is documented.
+
+*Sources: CDSecurity/cdsecurity-skills U3 (MIT, Copyright (c) 2026 CD Security); original analysis; Neodyme Token-2022 report ND-ANZ-LO-01 [paraphrased, cited].*
 
 ## 11.7 — Transitive Dependencies
 

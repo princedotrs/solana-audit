@@ -26,7 +26,7 @@ Turn the passive `QUESTIONS.md` questionnaire into a **persisted** `audit_<n>/in
 
 4. **Walk QUESTIONS.md → intake.md.** Fill every section of `templates/intake.md`:
    - **Scope & commit pin** — in/out of scope (honor `Q44` excludes), `--scope` boundary.
-   - **Languages & frameworks** (`Q3`–`Q7`) — drives the scope-gated checklist set (`SKILL.md` → SCOPE-GATED LOADING): on-chain Rust / Anchor / Pinocchio → checklists 01-07, plus always-on 11, 12, 16. Off-chain code (backend, frontend, database, TS / Python / Go) is out of scope for this skill — record it as out of scope, do not route it.
+   - **Languages & frameworks** (`Q3`–`Q7`) — drives the scope-gated checklist set (`SKILL.md` → SCOPE-GATED LOADING): on-chain Rust / Anchor / Pinocchio → checklists 01-07 and 23 (+ 21 for Anchor, + 22 for Token-2022 markers), plus always-on 11, 12, 16. Off-chain code (backend, frontend, database, TS / Python / Go) is out of scope for this skill — record it as out of scope, do not route it.
    - **Protocol class** (`Q1`, `Q17`–`Q24`) — gates checklist 06 + economic known-vectors when funds are handled.
    - **Compliance** (`Q35`–`Q38`) — retired; skip. Regulatory / privacy compliance review is out of scope for this skill.
    - **Severity calibration** (`Q8`, `Q10`, `Q11`, `Q40`–`Q41`) — record the concrete lever applied (mainnet → +1 on fund findings; TVL > $1M → double-weight criticals; single-wallet upgrade authority → auto Severity 8+), per the QUESTIONS.md effects table. Feeds report §5.

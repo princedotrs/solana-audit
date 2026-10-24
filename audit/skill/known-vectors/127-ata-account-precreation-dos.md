@@ -39,3 +39,5 @@ grep -rn --include="*.rs" -E "get_associated_token_address|find_program_address|
 - ⚠️: Uses `init_if_needed` but the pre-existing branch is only partially validated, or the risk is acknowledged but unmitigated
 - ❌: Plain `init` on an ATA / user-derivable account in a permissionless instruction — an attacker front-runs creation and permanently bricks the honest call
 - N/A: No on-chain program, or all `init` targets are non-predictable / gated behind an unforgeable signer
+
+**See also:** not the same as KV-141 (init succeeds and captures admin) or KV-142 (pre-allocated init hijack).

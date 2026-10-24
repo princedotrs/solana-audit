@@ -259,28 +259,45 @@ grep -rn -E "clock\.key\(\)|sysvar::clock::ID" programs/   # is the passed clock
 
 ---
 
-## 11. Thin-market / derivative pricing — underlying, never spot
+## 11. Thin-market / derivative pricing — redemption rate or fair LP price, never spot
 
 Any asset that is collateralizable, marginable, or borrowable against, whose external
 market depth is thin, must be priced via TWAP or `max(spot, TWAP)` for collateral (and
 `min(spot, TWAP)` for debt) — never spot alone. This is the Mango lesson: pushing a
 low-liquidity spot/vAMM mark and borrowing against it is cheap.
 
-Related and stricter: **LP tokens, LST/derivative tokens, and vault shares must be priced
-from their underlying reserves, never from a spot market for the wrapper.** A flash loan
-can move the wrapper's spot in one transaction; the fair value is `f(underlying reserves,
-supply)`. Redemption math especially must never consume a price that is itself a function
-of the position being closed.
+**LST/derivative tokens and vault shares** are priced from the issuer's redemption rate
+(underlying assets ÷ supply under the protocol's own accounting), never from a spot market for
+the wrapper. That rate must not be movable within the transaction (donation-resistant
+accounting). Redemption math must never consume a price that is itself a function of the
+position being closed.
+
+**LP tokens: never multiply live reserves by any price.** For a constant-product pool
+`k = x·y`, the reserve value at oracle prices, `x·pA + y·pB`, is smallest at the oracle ratio.
+Any swap away from that ratio *raises* the computed LP value, even with honest `pA`/`pB`.
+(OtterSec "$200m Bluff": Apricot, Larix, Port, Tulip and Parrot were at risk through a
+Switchboard feed built on Raydium pool balances; no exploit was reported.) Use a fair price:
+`LP = 2·sqrt(k·pA·pB) / lp_supply` with oracle prices (staleness/confidence checked). Compute
+it as `sqrt(k)·sqrt(pA·pB)` in a common fixed-point scale, with checked u128 math and floor
+rounding. Weighted pools: the weighted-geometric-mean form. StableSwap: `virtual_price ×
+min(p_i)`, after confirming that `virtual_price` cannot be raised within the transaction. CLMM
+positions: recompute the token amounts from liquidity at the **oracle-implied** sqrt price,
+never the pool's `sqrt_price`. If the program trusts an external feed for LP value, check how
+that feed is defined: a feed computed from pool balances inherits the flaw.
 
 **Auditor check**
-- PASS: thin-market collateral uses TWAP or conservative `max/min(spot, TWAP)`; LP/LST/share
-  prices derive from underlying reserves; redemption price is independent of the redeemer's
-  own transaction.
-- FAIL: spot-only pricing on a thin or collateralizable asset; an LP/derivative priced off
-  a swappable spot; a redemption curve that reads the same spot the user just moved.
+- PASS: thin-market collateral uses TWAP or conservative `max/min(spot, TWAP)`; LP collateral
+  uses an invariant-based fair LP price plus a supply cap / LTV haircut; LST/share prices use
+  the redemption rate; the redemption price is independent of the redeemer's own transaction.
+- FAIL: spot-only pricing on a thin or collateralizable asset; collateral or health math that
+  multiplies live vault/reserve balances (or CLMM `sqrt_price`/`tick_current`) by any price; a
+  trusted feed computed from pool balances; a redemption curve that reads the same spot the
+  user just moved.
 
 ```
 grep -rn -E "spot|twap|TWAP|lp_.*price|share.*price|reserve" programs/
+rg -n -i "lp_(token_)?price|price_lp|lp_value|pool_value|tvl" programs/
+rg -n -i "isqrt|integer_sqrt|\.sqrt\(|virtual_price|get_virtual_price" programs/
 ```
 
 ---
@@ -291,7 +308,7 @@ A protocol that accepts *another protocol's* token (LP token, LST, vault share) 
 collateral inherits **that protocol's entire oracle pipeline** — and its solvency. Two
 concerns:
 
-- **Inherited oracle risk:** if protocol B's NAV/price feed is weak (fails §1–§11 under B's
+- **Inherited oracle risk:** if protocol B's NAV/price feed is weak (fails §1–§11 or §13–§14 under B's
   own code), listing B's token as collateral imports that weakness. The asset-listing audit
   question is: what oracle does the issuer use, and does *it* pass this file?
 - **Solvency contagion:** if the accepted token's backing lives in B, then B's worst day is
@@ -310,6 +327,37 @@ grep -rn -E "collateral|accepted_mint|listing|lp_mint|lst" programs/
 
 ---
 
+## 13. Pull-oracle monotonicity and chained feeds
+
+- When users post price updates, require `new.publish_time >= stored.publish_time`. Otherwise an
+  older price that is still "fresh" can be replayed inside the staleness window.
+- A price derived from two feeds (A/USD ÷ SOL/USD) carries the summed confidence and deviation of
+  both (§9). Compare the combined bound with the liquidation buffer.
+
+---
+
+## 14. Legacy Pyth push feeds (old forks)
+
+In `pyth-client`/`pyth-sdk-solana` 0.x, `PriceAccount` publishes `agg.status`. Any status other
+than `Trading` (`Unknown`, `Halted`, `Auction`, and `Ignored` in later SDKs) is not a valid price.
+Reading `agg.price` or `get_price_unchecked()` skips the status gate. PASS: status == Trading +
+staleness (`valid_slot`/`publish_time`) + confidence.
+
+```
+rg -n "agg\.price|agg\.status|PriceStatus|load_price_account|get_current_price|get_price_unchecked|SolanaPriceAccount" programs/
+```
+
+---
+
+## 15. Cluster restart
+
+See lending.md §10 restart grace. After a halt, slot-based and time-based freshness disagree;
+record which one the program uses.
+
+*Sources: sannykim/solsec → OtterSec "The $200m Bluff" [paraphrased, cited: https://osec.io/blog/2022-02-16-lp-token-oracle-manipulation]; PlamenTSV/plamen §9 (MIT, Copyright (c) 2025-2026 Plamen Contributors); SlowMist best practices U5 (Apache-2.0, attributed to SlowMist), status list completed; original analysis.*
+
+---
+
 ## Oracle call-site checklist (fast pass — run per feed read)
 
 - [ ] Feed key pinned to a constant or timelocked stored value (§1)
@@ -322,6 +370,7 @@ grep -rn -E "collateral|accepted_mint|listing|lp_mint|lst" programs/
 - [ ] Switchboard `PullFeed` pins queue config, not just feed key (§8)
 - [ ] Composed reads: staleness = max, confidence = sum-of-ratios, expo aligned (§9)
 - [ ] Clock is `Clock::get()?` or a pinned `sysvar::clock::ID` account (§10)
-- [ ] Thin-market / LP / LST / share assets priced from underlying (TWAP), never spot; redemption price independent of the redeemer's tx (§11)
+- [ ] Thin-market assets use TWAP / `max/min(spot, TWAP)`; LP collateral uses a fair (invariant-based) LP price, LST/share the redemption rate, never spot or live reserves × price; redemption price independent of the redeemer's tx (§11)
 - [ ] Conservative side selected: collateral valued at `price - conf`, debt at `price + conf` (§7 + §11)
 - [ ] Third-party collateral inherits a validated oracle path + exposure cap (§12)
+- [ ] User-posted pull updates are monotonic in `publish_time`; legacy Pyth push reads gate on `status == Trading`; restart behaviour of the freshness check recorded (§13–§15)

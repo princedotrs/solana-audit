@@ -8,6 +8,10 @@ category: crypto
 ### 3 — Reentrancy (CPI)
 **Severity: 10** | **Real: The DAO ($60M), Curve ($70M)**
 
+> **Solana model (read first).** The runtime rejects A → B → A (`ReentrancyNotAllowed`), including A → Token-2022 → hook → A; only direct self-recursion A → A is allowed (up to the CPI nesting limit: max instruction stack height 5, i.e. four nested CPIs; 9, i.e. eight nested CPIs, once SIMD-0268 `raise_cpi_nesting_limit_to_8` is active on the target cluster). <!-- verified: agave v4.4.0-beta.1 program-runtime/src/invoke_context.rs (ReentrancyNotAllowed unless caller == callee), program-runtime/src/execution_budget.rs (MAX_INSTRUCTION_STACK_DEPTH = 5, _SIMD_0268 = 9) --> The Ethereum examples in the header are analogies only. On Solana this vector covers: (1) **stale state after a CPI** (caller decides from a cached copy the callee changed); (2) **untrusted code in the caller's critical section** (hooks, caller-chosen CPI targets) acting on forwarded privileges or third programs while the caller's invariants are false — not by calling back; (3) **self-CPI** through a caller-chosen program id (RE-008) and Anchor exit write-back clobbering (RE-009/RE-010); (4) **cross-instruction sequencing** within one transaction. See FP-1.
+
+*Sources: solana-foundation/solana-dev-skill #1 (MIT, Copyright (c) 2026); qedgen/solana-skills C1 (MIT, Copyright (c) 2025 QEDGen); PlamenTSV/plamen E4 (MIT, Copyright (c) 2025-2026 Plamen Contributors).*
+
 Malicious contract calls back during state change — Solana version: CPI to untrusted program that calls back before state is saved.
 
 #### Verification Procedure
@@ -26,7 +30,7 @@ grep -rn --include="*.rs" "invoke(\|invoke_signed(\|CpiContext::new" programs/
 - ✅ PASS: All state mutations complete before CPI call (checks-effects-interactions pattern)
 - ❌ FAIL: Any CPI call where state is written AFTER the call returns
 
-**Step 3: Check for Anchor reentrancy guard**
+**Step 3: Check for in-flight flags on multi-instruction flows (cross-instruction guards; `#[access_control]` is a precondition hook, not a reentrancy guard)**
 ```
 grep -rn --include="*.rs" "ReentrancyGuard\|reentrancy_guard\|#\[account.*realloc" programs/
 ```

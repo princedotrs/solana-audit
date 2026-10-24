@@ -38,7 +38,7 @@ Every item below is a single verification step. Mark each `[PASS]`, `[FAIL-{seve
 - [ ] **AR-020**: For withdrawal proportion `fraction = investor_shares / total_shares` — guard for `total_shares == 0`
 - [ ] **AR-021**: Division that can truncate to 0 when it shouldn't — is there a minimum output requirement?
 - [ ] **AR-022**: Integer division rounding direction — verify it rounds in favor of the protocol (not the user) for share minting
-- [ ] **AR-023**: Integer division rounding direction — verify it rounds in favor of the user (not the protocol) for share redemption
+- [ ] **AR-023**: Share/collateral redemption rounds in favour of the **protocol**: assets out = `floor(shares × total_assets / total_shares)`; shares burned for a requested asset amount = `ceil(…)`. Any user-favourable rounding on either side of a deposit → redeem round trip is a FAIL (KV-012; Neodyme SPL token-lending disclosure).
 - [ ] **AR-024**: Dust amount attacks: can an attacker exploit rounding by making many small deposits/withdrawals to accumulate rounding errors?
 - [ ] **AR-025**: First depositor attack: if total_shares == 0, can first depositor manipulate initial share price?
 
@@ -99,3 +99,37 @@ Every item below is a single verification step. Mark each `[PASS]`, `[FAIL-{seve
 > Floating point has no place in on-chain value computation: rounding is non-deterministic across builds/targets, precision is silently lost at scale, `powf`/`sqrt` blow up CU, and `f64 → u64` casts truncate or saturate. Every value/price/fee/interest/exchange-rate path must use fixed-point + checked integer math instead.
 
 - [ ] **AR-063**: No `f64`/`f32` (nor `powf`, `powi`, `sqrt`, `ln`, `exp`, or `as f64`/`as f32` casts) appears in any on-chain value, price, fee, interest, or exchange-rate computation — fixed-point representation with checked integer arithmetic is used instead; any `f64 ↔ u64` boundary cast in a value path is treated as a finding (see KV-128)
+
+## 3.10 — Panic Edge Cases, Rounding Modes & Hidden Unchecked Math
+
+- [ ] **AR-064**: Divisors are proven non-zero for every `wrapping_div/rem`, `overflowing_div/rem`, `saturating_div`, `div_euclid`/`rem_euclid` (and their wrapping/overflowing forms) call. Each one panics when the divisor is zero. Only the `checked_*` forms (`checked_div`, `checked_rem`, `checked_div_euclid`, `checked_rem_euclid`) return `None`. "We use saturating math" does not clear AR-018.
+- [ ] **AR-065**: Signed `iN::MIN / -1` and `iN::MIN % -1` written with plain operators panic whatever `overflow-checks` is set to. Check signed PnL, funding and i64 timestamps for this input. (`checked_div` returns `None` and `wrapping_div` returns `iN::MIN` for the same input.)
+- [ ] **AR-066**: `iN::MIN.abs()` panics under overflow-checks and stays negative without them. Use `checked_abs()`/`unsigned_abs()` and keep the sign where it carries meaning (AR-077).
+- [ ] **AR-067**: `checked_shl`/`checked_shr` return `None` only when the shift amount ≥ bit width. Bits shifted out are lost silently. Q64.64 / sqrt-price code must not use `checked_shl(64)` as an overflow check. Use `x.checked_mul(1u128 << 64)` on a u128 value, or a U256 widening multiply.
+- [ ] **AR-068**: `checked_*(..).unwrap()` / `.expect()` count as panic sites, not as hardened math. On liquidation, settlement, crank and withdrawal paths each one is a liveness risk.
+- [ ] **AR-069**: Plain `<<`/`>>` with a shift count derived from user or account data is bounded. A count ≥ bit width panics under overflow-checks and is masked without them (`x << 64` on u64 == `x << 0`).
+- [ ] **AR-070**: No limit, bounds or authorization guard computes unchecked arithmetic on a user-influenced operand inside the comparison (`used + requested <= cap`, `start + len <= buf.len()`, `ts + delay < now`). A wrapped guard is a bypass. Whether it drains funds depends on what follows: it matters most when the guard type is narrower than the guarded amount, or when the guarded value feeds internal accounting. Use a checked sum, or a checked subtraction on the trusted side.
+- [ ] **AR-071**: No round-to-nearest/half-up mode (`try_round_u64`, `.round()`, `round_half`, `+ HALF_WAD`, spl-math `PreciseNumber::to_imprecise()`) on any value-conversion path. Choose the direction per call site from who receives value: floor what the protocol pays out, ceil what it receives. Size the attack as (rounding gains per instruction × instructions per transaction × transactions), not by one transaction's gain. <!-- verified: spl-math to_imprecise adds a half-unit rounding correction before dividing (round half up) -->
+- [ ] **AR-072**: A safe wrapper does not hide unchecked inner math (`x.saturating_sub(a * b * c)` protects only the subtraction). Typed-quantity newtypes (`QuoteLots(u64)`) do not `impl Add/Mul/Sub` with raw operators on the inner field.
+- [ ] **AR-073**: An `as u8/u16/u32` on a value derived from a const generic or `size_of::<T>()` is not guarded only by an associated-const assertion that nothing references. In a generic impl, `const OK: () = assert!(..)` is evaluated only when it is used. Use `u16::try_from(n)?` or force evaluation (`let () = Self::OK;`).
+- [ ] **AR-074**: Inverse helper pairs (`to_shares`/`to_assets`, `normalize`/`denormalize` by decimals, `scale_up`/`scale_down`) are applied symmetrically. Every value scaled at entry is unscaled at the matching exit with the same parameters (the same mint's decimals, the same rounding policy) on every path.
+- [ ] **AR-075**: No hard-coded rent constants (`2_039_280` = 165-byte token account, `1_461_600` = 82-byte mint, `890_880` = 0-byte account, `LAMPORTS_PER_BYTE`, `165`-byte assumptions). Use `Rent::get()?.minimum_balance(len)` and, for Token-2022, `ExtensionType::try_calculate_account_len::<Account>(&exts)`. User input never chooses `space` on keeper-paid accounts. (The `\b165\b` grep is noisy; use it for triage only.) <!-- verified: token-2022 interface/src/extension/mod.rs try_calculate_account_len<S: BaseState>(&[ExtensionType]); constants = (len+128)*3480*2 -->
+- [ ] **AR-076**: Integer narrowing with `as` silently truncates (use `try_from`). Float→int `as` saturates (NaN → 0). A same-width signed↔unsigned `as` reinterprets the bits. A widening signed→unsigned `as` sign-extends (`-1i32 as u64 == u64::MAX`). Classify each `as` on a value path accordingly.
+- [ ] **AR-077**: Signed quantities (funding rate, PnL, skew) keep their sign through abs/divide steps. Compute in i128 with `checked_abs`/`checked_div`, or carry the sign separately. An `unsigned_abs()` + unsigned divide "fix" that drops the direction is a logic bug.
+- [ ] **AR-078**: Every add, subtract or compare on a value path uses one unit and scale (lamports vs token base units, `D(decimals)` per mint, oracle `{price}×10^expo`, bps vs ppm, slot vs seconds, shares vs tokens). Every multiply/divide is followed by an explicit rescale (references/methodologies/dimensional-analysis.md).
+
+Grep (triage only; every hit still needs a manual read):
+
+```bash
+rg -n '\b(wrapping|saturating|overflowing)_(div|rem)\b|_euclid\(' programs/
+rg -n '\.abs\(\)' programs/
+rg -n 'checked_sh[lr]\(|<<\s*[a-z_]|>>\s*[a-z_]' programs/
+rg -n 'checked_\w+\([^)]*\)\s*\.(unwrap|expect)\(' programs/
+rg -n 'try_round_u(64|128)|\.round\(\)|round_half|to_imprecise\(' programs/
+rg -n '\.(saturating|checked|wrapping)_(add|sub|mul|div)\([^)]*[a-z_)\]]\s*[*+-]\s*[a-z_(]' programs/
+rg -n 'impl (std::ops::|core::ops::)?(Add|Sub|Mul|Div)(Assign)? for' programs/ -A6 | rg 'self\.0\s*[*+-]'
+rg -n 'const [A-Z_]+: \(\) = assert!' programs/
+rg -n '2_?039_?280|890_?880|1_?461_?600|LAMPORTS_PER_BYTE' programs/
+```
+
+*Sources: Trail of Bits `rust-review` arithmetic finders [paraphrased, CC-BY-SA-4.0; reworded, `saturating_rem` removed]; Neodyme "Common Pitfalls" U2 [paraphrased, cited] with corrected example scope; sannykim/solsec → Neodyme lending disclosure [paraphrased, cited]; SlowMist U4 (Apache-2.0, attributed to SlowMist), paraphrased; Helius §2 [paraphrased, cited]; qedgen/solana-skills hidden-unchecked-arithmetic and const-generic narrowing patterns (MIT, Copyright (c) 2025 QEDGen); PlamenTSV/plamen §8 (MIT, Copyright (c) 2025-2026 Plamen Contributors); solana-foundation/solana-dev-skill #9 (MIT, Copyright (c) 2026); pashov/skills `as` note corrected (MIT, Copyright (c) 2024 AI Skills Contributors).*

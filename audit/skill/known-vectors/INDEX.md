@@ -13,7 +13,7 @@ Every row carries a **Load when (markers)** cell: the grep/prescan markers that 
 
 ## How to Contribute
 
-1. Create a new file: `NNN-short-name.md` using the next number above 140 (numbers up to 140 are reserved, including the gaps; never reuse one)
+1. Create a new file: `NNN-short-name.md` using the next number above 182 (numbers up to 182 are reserved, including the gaps; never reuse one)
 2. Follow the existing format: YAML frontmatter + `### N — Title` + severity + real-world example + verification procedure with numbered steps
 3. Add your entry to this index under the matching section (include the **Load when (markers)** cell — default to `always (<phase>)` unless the vector is provably feature-specific)
 4. Update the totals at the bottom of this file, then submit a PR
@@ -133,6 +133,55 @@ Every row carries a **Load when (markers)** cell: the grep/prescan markers that 
 |---|--------|----------|---------------------|
 | 138 | [Slot-Denominated Time After SIMD-0525 (Slot Used as a Clock)](138-slot-denominated-time-assumptions.md) | 7 | `clock.slot` · `Clock::get()?.slot` · `SLOTS_PER_YEAR` · `DEFAULT_TICKS_PER_SLOT` · `DEFAULT_MS_PER_SLOT` · `*_slot` duration / deadline fields · epoch-denominated lockups · `warp_to_slot` · `216_000` / `432_000` |
 
+### Crypto / On-Chain (141-182)
+
+> Added in v8.0. Focus: initialization and authority-anchoring gaps, instruction introspection and return data, Anchor version-dependent semantics, native/Pinocchio type cosplay and unsafe code, SPL / Token-2022 account lifecycle, and protocol-logic invariants (sibling-path guards, timers, snapshots, payout bounds, atomic outcomes).
+
+| # | Vector | Severity | Load when (markers) |
+|---|--------|----------|---------------------|
+| 141 | [Unbound Singleton Initialize Front-Run](141-unbound-singleton-initialize-frontrun.md) | 6 | always (crypto) |
+| 142 | [Pre-Allocated Account Init Hijack / Re-Initialization](142-preallocated-account-init-hijack.md) | 8 | `zero` · `load_init` · `AccountLoader` · `is_initialized` · `UncheckedAccount` written in `initialize*` |
+| 143 | [PDA Signer Sharing / Cross-Instance Vault Drain](143-pda-signer-sharing-cross-instance-drain.md) | 9 | `invoke_signed` · `with_signer` · `new_with_signer` · `token::authority` |
+| 144 | [Self-Referential Seeds & Permissionless Gating Objects](144-self-referential-seeds-gating-objects.md) | 8 | `seeds` |
+| 145 | [Tautological Constraints Anchored on Unchecked Keys](145-tautological-constraints-unchecked-keys.md) | 8 | `seeds::program` · `owner =` · `UncheckedAccount` · `AccountInfo<` |
+| 146 | [Parent-Substitution Authority Bypass (Root-Anchor Chain)](146-parent-substitution-authority-bypass.md) | 9 | always (crypto) |
+| 147 | [Passive-Role Token Account Not Anchored to the Role](147-passive-role-token-account-unanchored.md) | 9 | `TokenAccount` · `token_account` · `recipient` · `beneficiary` · `claimant` |
+| 148 | [Store-Without-Validate / Persisted Point-in-Time Trust](148-store-without-validate-persisted-trust.md) | 7 | always (crypto) |
+| 149 | [Internal-Only Instruction Reachable as a Public Entrypoint](149-internal-instruction-public-entrypoint.md) | 9 | `invoke_signed` · `with_signer` · self-CPI · `crate::ID` |
+| 150 | [Discarded Result, Built-but-Not-Invoked Instruction, Default-on-Error](150-discarded-result-silent-noop.md) | 7 | `let _ =` · `.ok()` · `unwrap_or_default` · `instruction::` |
+| 151 | [Instruction-Introspection Pairing Bypass (Flash-Loan Repay, Many-to-One, CPI-Wrap)](151-introspection-pairing-bypass.md) | 9 | `load_instruction_at` · `load_current_index` · `get_instruction_relative` · `sysvar::instructions` · `flash` |
+| 152 | [CPI Return-Data Spoofing](152-cpi-return-data-spoofing.md) | 7 | `get_return_data` · `set_return_data` · `Return<` |
+| 153 | [Anchor Legacy IDL Instruction Surface](153-anchor-legacy-idl-instruction-surface.md) | 5 | `anchor-lang` · `legacy_idl` · `no-idl` |
+| 154 | [Anchor `Program` That Checks Only `executable`](154-anchor-program-executable-only.md) | 8 | `Program<'info>` · `Program<'info, System>` · `anchor-lang = "1.0.` |
+| 155 | [Anchor Constraint Codegen Identifier Shadowing](155-anchor-constraint-codegen-shadowing.md) | 8 | `has_one` · `owner =` · `address =` · fields `my_key`/`my_owner`/`actual` |
+| 156 | [Anchor Discriminator Collisions (Generic, Custom, Short, All-Zero)](156-anchor-discriminator-collisions.md) | 8 | `discriminator =` · generic `#[account]` structs |
+| 157 | [Anchor Optional-Account Gate Bypass](157-anchor-optional-account-gate-bypass.md) | 8 | `Option<Account` · `Option<Signer` · `Option<UncheckedAccount` |
+| 158 | [Anchor Framework-Version Security-Fix Exposure](158-anchor-framework-version-exposure.md) | 7 | `anchor-lang` |
+| 159 | [Native Borsh Enum / Hand-Rolled Tag Type Cosplay](159-native-borsh-tag-type-cosplay.md) | 8 | `try_from_slice` · `BorshDeserialize` · `entrypoint!` · `pinocchio` |
+| 160 | [Upgrade Layout Drift / Unmigrated Accounts](160-upgrade-layout-drift-unmigrated-accounts.md) | 8 | always (crypto) |
+| 161 | [Vault Return-to-Zero Residual Capture](161-vault-return-to-zero-residual.md) | 7 | `shares` · `total_shares` · `vault` · `mint_to` |
+| 162 | [Unbacked Pre-Funded Reserve at Initialization](162-init-unbacked-prefunded-reserve.md) | 8 | `initialize` · `reserve` · `vault` · `total_lamports` |
+| 163 | [Wrapped-SOL `SyncNative` Balance Manipulation](163-wsol-syncnative-balance-manipulation.md) | 7 | `NATIVE_MINT` · `native_mint` · `So11111111111111111111111111111111111111112` · `sync_native` · `is_native` |
+| 164 | [Adopted Token Account: Surviving Close Authority, Close and Re-Create](164-adopted-token-account-close-authority.md) | 7 | `token::authority` · `set_authority` · `TokenAccount` |
+| 165 | [Residual SPL Delegate Approval on a Program-Owned Token Account](165-residual-delegate-approval.md) | 7 | `approve` · `approve_checked` · `delegate` |
+| 166 | [Token-2022 Mint Resurrection: Orphan Accounts with a Stale Extension Set](166-token-2022-mint-resurrection-orphans.md) | 7 | `token_2022` · `MintCloseAuthority` · `NonTransferable` · `TransferHook` · `TransferFee` · `Pausable` |
+| 167 | [Transfer-Hook `Execute` Unauthenticated (Hook Program Author Side)](167-transfer-hook-execute-unauthenticated.md) | 8 | `spl_transfer_hook_interface` · `TransferHookInstruction` · `ExtraAccountMetaList` · `execute` |
+| 168 | [Token Close-Path DoS: Dust, Withheld Fees, Confidential Balances](168-token-close-path-dos.md) | 5 | `close_account` · `CloseAccount` · `close =` on token accounts |
+| 169 | [Push-Payout Bricking by Recipient-Controlled Account State](169-push-payout-recipient-bricking.md) | 6 | `remaining_accounts` loops with `transfer` · `distribute` · `settle` · `payout` |
+| 170 | [Sibling-Path Guard Asymmetry (Cap, Fee, Pause, Accounting Bypass)](170-sibling-path-guard-asymmetry.md) | 7 | always (crypto) |
+| 171 | [Timer / Cooldown Reset by Third-Party or Zero-Amount Writes](171-timer-reset-third-party-or-zero.md) | 6 | `cooldown` · `lock_start` · `unlock` · `last_deposit` · `last_claim` |
+| 172 | [Live Config Read at Execute / Release Instead of a Snapshot](172-config-not-snapshotted.md) | 6 | `request` · `ticket` · `pending` · `config.` read in execute/claim/withdraw |
+| 173 | [Accrual Keeps Running While Paused](173-accrual-during-pause.md) | 6 | `paused` · `accrue` · `last_accrual` · `last_update_ts` |
+| 174 | [Config Update Silently Drops a Field](174-config-update-dropped-field.md) | 5 | `fn update_` · `fn set_` · `Params` · `Settings` |
+| 175 | [Parent Close with Live Children: Orphaned or Revived Child PDAs](175-parent-close-orphans-revives-children.md) | 7 | `close =` on a parent type with children seeded by its key |
+| 176 | [Payout Schedule Exceeds Recorded Principal](176-payout-exceeds-principal.md) | 8 | `vest` · `unlock` · `claimable` · `releasable` · `interval` · `period` |
+| 177 | [Declared Intent the Code Never Enforces](177-declared-intent-unenforced.md) | 5 | always (crypto) |
+| 178 | [Atomic Outcome Revert (Same-Transaction Settlement)](178-atomic-outcome-revert.md) | 8 | `random` · `roll` · `spin` · `lottery` · `raffle` · `loot` · `winner` |
+| 179 | [On-Chain Secrets & Low-Entropy Commitments](179-onchain-secret-low-entropy-commitment.md) | 7 | `pin` · `secret` · `password` · `passcode` · `hash(` of small values |
+| 180 | [On-Chain Memory Corruption Escalating to Signed CPI](180-onchain-memory-corruption.md) | 9 | `unsafe` · `transmute` · `from_raw_parts` · `get_unchecked` · `fn(` pointers |
+| 181 | [sBPF v3 / Gap-less Stack: Faults That Used to Protect Become Silent](181-sbpf-v3-silent-memory-faults.md) | 7 | `unsafe` · `read_unaligned` · `ptr::read` · `copy_nonoverlapping` |
+| 182 | [Pinocchio / Unsafe-Protocol Hazards Around Unchecked Borrows and CPIs](182-pinocchio-unsafe-protocol-hazards.md) | 8 | `pinocchio` · `_unchecked(` · `SAFETY:` · `invoke_signed_unchecked` |
+
 ---
 
 ## Known Duplicates & Consolidation Map
@@ -147,14 +196,17 @@ independent coverage. Severity is aligned to the higher of the pair.
 | 020 | 091 | Program upgrade authority compromise | 10 |
 
 Every other overlap (e.g. 023 ↔ 105 Token-2022 hooks/extensions, 014 ↔ 106 reinitialization vs revival,
-010 / 026 / 104 PDA derivation) is a distinct concept: each gets its own verdict, with the shared root
-cause cited in the cross-ref notes inside the vector files.
+010 / 026 / 104 PDA derivation, 014 ↔ 127 ↔ 141 ↔ 142 initialization, 026 ↔ 143 ↔ 144 PDA signer and
+seed scope, 101 ↔ 151 instruction introspection, 010 / 027 ↔ 156 / 159 discriminators and type cosplay,
+105 ↔ 166 and 023 ↔ 167 Token-2022 extensions/hooks, 016 ↔ 147 / 164 token-account binding, 024 / 106 ↔ 175
+close paths, 109 ↔ 182 and 180 ↔ 181 Pinocchio / unsafe memory) is a distinct concept: each gets its own
+verdict, with the shared root cause cited in the cross-ref notes inside the vector files.
 
-**Distinct concepts:** 57 (58 files − 1 duplicate pair).
+**Distinct concepts:** 99 (100 files − 1 duplicate pair).
 
 ---
 
-**Total vector files:** 58 (on-chain and program-ops subset of the upstream catalog; numbering preserved)
-**Distinct concepts:** 57 (after consolidating 1 duplicate pair)
+**Total vector files:** 100 (58 on-chain and program-ops vectors kept from the upstream catalog, numbering preserved, + 42 in v8.0: 141-182)
+**Distinct concepts:** 99 (after consolidating 1 duplicate pair)
 **Categories (frontmatter `category`):** 4 (crypto, devops, dos, backend — the two `backend` vectors, 126 and 135, are kept for their on-chain custody / fee-payer surface)
 **Severity range:** 5-10

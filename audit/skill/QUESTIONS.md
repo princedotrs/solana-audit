@@ -296,8 +296,8 @@ Compliance, privacy and server-location review is out of scope for this skill. Q
 
 ### Q39. What should this audit focus on?
 Select all that apply, or choose "Full":
-- [ ] **Full audit** (every in-scope program, checklists 01-07 plus always-on 11, 12, 16)
-- [ ] On-chain program logic only (checklists 01-07)
+- [ ] **Full audit** (every in-scope program, checklists 01-07 and 23, + 21 / 22 when their markers are present, plus always-on 11, 12, 16)
+- [ ] On-chain program logic only (checklists 01-07 and 23, + 21 / 22 when their markers are present)
 - [ ] Specific programs / instructions: _______________
 - [ ] Secrets & key management only
 - [ ] Supply chain / dependencies only
@@ -381,13 +381,29 @@ Building, testing or installing the project runs code the project controls — b
 
 ---
 
+## Section 12: Audit Readiness
+
+### Audit-readiness intake (pre-audit request list)
+- Architecture document listing every instruction, its signers, the accounts it touches and their owners.
+- Trust roles beyond Q11 and Q14–Q16: keeper/crank, oracle, **IDL authority / Program Metadata authority**, freeze/pause authorities of accepted mints; name the key or multisig behind each.
+- Intended invariants, in prose.
+- For each program ID in Q9: the commit hash and the verified-build hash.
+- Out-of-repo dependencies (CPI targets) and whether each is immutable or upgradeable.
+- Any account-layout change since the last deployment, and the migration plan.
+
+Missing items become an Informational "audit-readiness" note, not a finding.
+
+*Sources: 0xMacro/awesome-solana-security → Exo Technologies audit-readiness guide [paraphrased, no licence, https://github.com/0xMacro/awesome-solana-security].*
+
+---
+
 ## How Answers Affect the Audit
 
 | Answer | Effect |
 |--------|--------|
 | Q1 = DeFi | Enables economic attack scenarios (checklists 06, known vectors 1-30) |
-| Q2 = Solana | Enables the on-chain program checklists (01-07); always-on 11, 12, 16 run regardless. Q2 = Not Solana → stop: out of scope for this skill |
-| Q3 = Anchor / Native / Pinocchio | Loads the matching `references/framework-idioms/{anchor,native,pinocchio}.md` |
+| Q2 = Solana | Enables the on-chain program checklists (01-07, 23; + 21 for Anchor, + 22 for Token-2022); always-on 11, 12, 16 run regardless. Q2 = Not Solana → stop: out of scope for this skill |
+| Q3 = Anchor / Native / Pinocchio | Loads the matching `references/framework-idioms/{anchor,native,pinocchio}.md`; Anchor also loads checklist 21 (and `anchor-v2.md` for 2.0.0-rc / `anchor-next`) |
 | Q4 = any off-chain component | Listed as out of scope in the report; not reviewed |
 | Q8 = Mainnet live | Increases all severity scores by 1 for fund-related findings |
 | Q10 > $1M | Doubles the weight of critical findings in risk score |

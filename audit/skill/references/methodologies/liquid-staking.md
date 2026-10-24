@@ -287,6 +287,53 @@ grep -rn -E "pause|emergency|reconcil|custod|backend|hot_?key" programs/
 
 ---
 
+<!-- verified: agave v2.1.0 programs/stake/src/stake_instruction.rs (EpochRewardsActive for every instruction except GetMinimumDelegation); agave v2.1.0 sdk/program/src/sysvar/epoch_rewards.rs (impl_sysvar_get!(sol_get_epoch_rewards_sysvar)); agave v4.4.0-beta.1 feature-set/src/lib.rs (commission first-half rule #29362, "SIMD-0249: Delay Commission Updates", enable_get_epoch_stake_syscall) -->
+
+## 14. Epoch-rewards distribution window
+
+Partitioned epoch rewards (SIMD-0118) credit staking rewards over several blocks at the start of each
+epoch. During that window `EpochRewards::get()?.active == true`, and the stake program rejects every
+instruction except `GetMinimumDelegation` with `StakeError::EpochRewardsActive` (delegate, deactivate,
+withdraw, split, merge, authorize…). Bugs:
+- Epoch-boundary cranks that revert in the window and have no retry path, so they are stuck for the
+  epoch.
+- A pool `update` that reads stake balances while `active` is true and then sets `last_update_epoch`.
+  The rest of the rewards stay invisible, so an attacker deposits at the low rate and withdraws after
+  the true rate.
+
+Fix: before finalising an epoch's exchange rate,
+`require!(!EpochRewards::get()?.active, PoolError::EpochRewardsActive);` (Anchor; native: return an
+error).
+
+---
+
+## 15. Validator-side parameters
+
+- **Commission rug:** a validator raises its commission to 100 % for the epoch being paid, then lowers
+  it. On-chain code can read only the vote account's *current* commission. Snapshot it into the pool's
+  own state at a fixed point each epoch, cap the accepted commission, and provide a permissionless
+  "remove validator / unstake" path when the cap is exceeded. The active runtime rule (feature #29362)
+  accepts commission *increases* only in the first half of an epoch; decreases are allowed at any time.
+  That makes a rug visible earlier but does not prevent it. SIMD-0249 (delay commission updates) exists
+  as a feature gate in Agave 4.4; check whether it is active on the target cluster before relying on it.
+- The vote account's withdraw authority can change. Protocols that attribute MEV/tip revenue by it must
+  re-read it on use.
+- `sol_get_epoch_stake` (SIMD-0133) returns the stake snapshot the runtime uses for the current epoch,
+  not live delegations. Delegation changes count only after epoch boundaries. Do not mix it with live
+  balances in one quorum.
+
+---
+
+## 16. Unbacked reserve at initialisation
+
+A pool `initialize` that accepts a pre-funded reserve (lamports above the rent minimum, or tokens in a
+vault) and mints no shares for it hands that value to the first depositor. Canonical case: SPL
+stake-pool (Sec3), fixed by SPL PR #2636. See KV-162.
+
+*Sources: original analysis, version items resolved against agave sources; sannykim/solsec → Sec3 stake-pool post [paraphrased, cited: https://www.sec3.dev/blog/solana-stake-pool-a-semantic-inconsistency-vulnerability-discovered-by-x-ray].*
+
+---
+
 ## Liquid-staking checklist (fast pass)
 
 - [ ] Exchange rate monotonic non-decreasing except bounded reward-sourced fees (§1)
@@ -302,4 +349,7 @@ grep -rn -E "pause|emergency|reconcil|custod|backend|hot_?key" programs/
 - [ ] First-depositor inflation guarded (seed / min deposit) (§11)
 - [ ] MEV tip splits sum to 100%; per-epoch idempotent; tip account PDA-checked (§12)
 - [ ] Custodial backends: multisig staking authority, job reconciliation, fast pause (§13)
+- [ ] Exchange rate not finalised while `EpochRewards.active`; epoch cranks retry after the rewards window (§14)
+- [ ] Validator commission snapshotted and capped; permissionless removal above the cap; `sol_get_epoch_stake` not mixed with live balances (§15)
+- [ ] `initialize` mints shares for (or rejects) any pre-funded reserve (§16)
 - [ ] Router/exchange-rate and LST-as-collateral pricing pass `references/methodologies/oracles.md`

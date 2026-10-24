@@ -13,6 +13,8 @@ The SBF/BPF VM enforces a hard **4096-byte stack frame limit** per function invo
 
 Note: this is a **liveness/DoS** issue, not memory corruption — the VM aborts rather than allowing the overrun. Severity is moderate because it is deterministic and normally surfaces in testing, but a frame that only overflows on a rarely-hit branch (large local inside one `match` arm) can ship undetected.
 
+> **Memory-corruption variant.** "The VM aborts rather than allowing the overrun" holds only while stack frames are separated by unmapped gaps. Programs built for SBPF v1 or later (dynamic stack frames; this includes v3) have no gaps, and for SBPF v0 programs the runtime drops the gaps once SIMD-0460 (`virtual_address_space_adjustments`) is active — check its activation on the target cluster. Without gaps, a write past the end of a frame (frames are a fixed 4 KiB in SBPF v0; in v1+ the compiler sizes them) lands silently in the adjacent live frame (KV-181). Checked indexing still panics (DoS); unchecked pointer writes become corruption. <!-- verified: agave v4.4.0-beta.1 syscalls/src/lib.rs (enable_stack_frame_gaps: !feature_set.virtual_address_space_adjustments), program-runtime/src/vm.rs (gapped stack only if sbpf_version.stack_frame_gaps() && enable_stack_frame_gaps), feature-set/src/lib.rs (SIMD-0460) -->
+
 #### Verification Procedure
 
 **Step 1: Build and grep for the linker-stage stack warning**

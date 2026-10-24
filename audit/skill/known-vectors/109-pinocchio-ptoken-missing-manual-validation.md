@@ -77,6 +77,8 @@ grep -rn -E "unsafe-account-resize|resize|realloc|set_data_length" programs/ Car
 - ✅ PASS: Every sub-operation in a batch validates owner/signer/bounds **before it acts**, so no intermediate step touches an account it hasn't authorized; correctness does not depend on a later reversal restoring valid final state
 - ❌ FAIL: A batch modifies then reverses account data such that only the final state is checked (by the program or the runtime's deferred owner check) — an intermediate invalid write slips through
 
+**Pinocchio 0.10+ API note.** Pinocchio 0.10/0.11 renamed core types (`AccountInfo` → `AccountView` from `solana-account-view`, `Pubkey` → `Address` from `solana-address`, `.is_owned_by()` → `.owned_by()`); <!-- verified: pinocchio pinocchio@v0.9.3 sdk/pinocchio/src/account_info.rs (is_owned_by); pinocchio@v0.10.0 sdk/src/lib.rs (AccountView, Address re-exports); pinocchio@v0.11.0 programs/token/src/state/account.rs (owned_by) --> the Step 1 greps miss modern code — use the updated greps in references/framework-idioms/pinocchio.md §6. Wrapper assertion chains: pinocchio.md §7. Unsafe-protocol hazards: KV-182.
+
 **Overall verdict:**
 - ✅: All owner/signer/bounds/discriminator checks present and explicit; unsafe code guarded; token semantics match canonical
 - ⚠️: Mostly validated but some reads lack explicit bounds checks or rely on layout assumptions

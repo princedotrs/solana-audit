@@ -274,6 +274,15 @@ grep -rn -E "lookup_table|address_lookup|ALT|versioned|freeze|deactivate.*lookup
 
 ---
 
+## 13. Related checks
+
+- **Stake-weighted voting via `sol_get_epoch_stake`:** epoch-snapshot semantics (liquid-staking.md §15).
+- **Pre-sign review of proposals:** use `templates/tx-presign-review.md` before signers approve an
+  upgrade/admin proposal.
+- **Durable nonces:** see KV-119 (pre-signed governance transactions and nonce-authority control).
+
+---
+
 ## Governance checklist (fast pass — DAO-voting-specific; pair with `checklists/07`)
 
 - [ ] Token withdrawal blocked (or weight snapshotted) while a vote on a live proposal stands — no withdraw-to-re-vote (§1)

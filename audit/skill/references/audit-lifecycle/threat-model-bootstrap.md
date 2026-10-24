@@ -223,6 +223,37 @@ resolve, or the target is a partial clone or git cannot read its config.
 
 ---
 
+## Domain dossier (build from source before hunting; cite every entry to file:line)
+
+1. **Asset-flow graph** — per value-moving handler: asset, source → destination, nominal vs delivered amount (fees in between), authority, matching state mutation.
+2. **Quantity & unit table** — per field/parameter: unit (tokens, shares, lots, price, bps, slots, timestamps, indexes), scale, rounding direction, valid range; reject any equation mixing units without a conversion.
+3. **Lifecycle graph** — states, edges, entry guards, terminal states, reversible edges, **parent/child account dependencies** (feeds KV-175).
+4. **Authority-capability matrix** — per role: authenticated identity, callable handlers, mutable fields, external capabilities, limits, revocation path. A signer proves authentication, not entitlement to every effect.
+5. **Economic equations** — conservation, solvency, pricing, accrual, monotonicity, with tolerated error.
+6. **External assumptions** — oracle semantics, token extensions, CPI guarantees, clock/epoch, keeper behaviour, governance, trusted libraries.
+
+Pair converse operations (deposit/withdraw, mint/redeem, borrow/repay, open/close, freeze/thaw, nominate/accept, create/destroy, settle/reopen) and check them for asymmetry. Tag entries `literal` (anchored on an enforcement line), `derived` or `semantic`; derived/semantic entries become questions.
+
+## Asking the team (design questions)
+
+Read the code first; ask only what code cannot answer; never ask for facts the source shows. Resolve in dependency order: accounts/PDAs → authority/signers → CPI trust → state/layout/init/realloc/close → economic invariants/oracle/rounding → upgrade/governance/pause/migration → compute/DoS → token/Token-2022. Each question carries evidence, risk, a recommended default, the reason, and the artifact it blocks; track statuses `Open / Accepted / Deferred / Resolved / Accepted Risk`. An unanswered question stays a hypothesis.
+
+Example, [verbatim, MIT, Copyright (c) 2026 Berektassuly]:
+
+```text
+Question: Should this vault authority PDA be scoped per market or global?
+Evidence: `withdraw` signs token transfers with the vault authority PDA.
+Recommended default: per-market PDA.
+Reason: it prevents authority from one market being reused over another market's funds.
+Blocks: PDA map, authority matrix, token transfer tests.
+```
+
+<!-- verified: example text identical to beriktassuly/solana-audit-skill skill/references/workflows/pre-audit-design-review.md L59-63 (MIT, "Copyright (c) 2026 Berektassuly"); the question order is limited to on-chain scope. -->
+
+*Sources: qedgen/solana-skills Part D (MIT, Copyright (c) 2025 QEDGen), rewritten; beriktassuly/solana-audit-skill `skill/references/workflows/pre-audit-design-review.md` (MIT, Copyright (c) 2026 Berektassuly) — example verbatim, question order adapted to on-chain scope.*
+
+---
+
 ## Bootstrap fast pass
 
 - [ ] Mode chosen with the team-availability question and a recorded trigger; `Mode` set in the artifact header (§1)

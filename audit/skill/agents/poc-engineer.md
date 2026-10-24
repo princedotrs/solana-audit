@@ -68,7 +68,7 @@ If the Trail of Bits skills (https://github.com/trailofbits/skills, CC-BY-SA-4.0
 
 - **`[PoC-REPRODUCED]`** — the exploit ran and asserted the flaw (succeeds on `vulnerable`, rejected on `fixed`) under Mollusk / LiteSVM. Cite the crate path and the `run.sh` command.
 - **`[PoC-SIM-REPRODUCED]`** — reproduced against a Surfpool mainnet-fork with a recorded net P/L (economic / oracle / MEV).
-- **`[PoC-FUZZ-REPRODUCED]`** — a Trident / cargo-fuzz target produced the crashing / invariant-breaking input; save the corpus entry.
+- **`[PoC-FUZZ-REPRODUCED]`** — a fuzzer reproduces it deterministically. cargo-fuzz / honggfuzz: save the crashing / invariant-breaking input. Trident ≥ 0.11 (seeded, manually guided, no crash file): record the Trident version, harness commit, program build hash, failing iteration seed and the `trident fuzz debug <target> <seed>` command; a host-compiled entrypoint run must be re-confirmed against the SBF `.so` (`OUTPUT-RULES.md` Rule 5b tier table).
 - **`[PoC-ATTEMPTED]`** — on **any** blocker (no toolchain, the recorded execution mode cannot run it, cannot minimize into a self-contained crate, fork state unavailable), downgrade to `[PoC-ATTEMPTED]` + the finding's structured prose PoC, name the exact blocker, and record what a maintainer must install/provide to promote it.
 
 **Never fabricate a passing test.** An honest `[PoC-ATTEMPTED]` + prose beats a faked green `[PoC-REPRODUCED]`. Downgrading the evidence tier never changes the finding's severity. Return the tier + crate path to the orchestrator.

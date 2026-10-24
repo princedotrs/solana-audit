@@ -21,7 +21,7 @@ grep -rn --include="*.rs" -iE "load_instruction_at|get_instruction_relative|inst
 - If present: this pattern requires deep manual review
 
 **Step 2: Verify the precompile program ID is checked**
-- ✅ PASS: Code asserts the introspected instruction's `program_id == ed25519_program::ID` (or secp256k1)
+- ✅ PASS: the precompile program id matches the scheme: `ed25519_program`, `secp256k1_program`, or the secp256r1 precompile `Secp256r1SigVerify1111111111111111111111111` (`solana_sdk_ids::secp256r1_program`; SIMD-0075 — the `enable_secp256r1_precompile` gate was removed in agave v4.1.0 (always enabled from then on); on a cluster running an older or forked validator confirm it is active) (33-byte compressed keys; ed25519-style offsets with u16 instruction-index fields; at most 8 signatures per instruction) <!-- verified: agave v4.4.0-beta.1 precompiles/src/lib.rs (registers solana_sdk_ids::secp256r1_program, feature None = always enabled), precompiles/src/secp256r1.rs; agave v4.0.0 still gated on enable_secp256r1_precompile; gate removed by #11116, first tagged in v4.1.0 -->
 - ❌ FAIL: Program ID not checked — any instruction at that index satisfies the check
 
 **Step 3: Verify message + pubkey binding**
@@ -36,6 +36,14 @@ grep -rn --include="*.rs" -iE "load_instruction_at|get_instruction_relative|inst
 **Step 5: Replay protection**
 - ✅ PASS: Signed message includes a nonce/expiry/slot tied to state; replays rejected
 - ❌ FAIL: Same signed payload can be replayed across transactions/accounts
+
+**Step 6: Count and threshold**
+- ❌ FAIL: the consumer only checks that a precompile instruction exists at index k — an ed25519 instruction whose data is exactly two bytes with `num_signatures == 0` (e.g. `[0, 0]`; the second byte is padding, no offset records) succeeds and verifies nothing; the same holds for secp256k1 with data exactly `[0]`. (secp256r1 rejects `num_signatures == 0`.)
+- ❌ FAIL: "every signature is from an allowed signer" loop — vacuously true for an empty list
+- ✅ PASS: `num_signatures ≥ 1`; every offset/index binds to the precompile instruction itself; message compared; **distinct** allowed signers counted against the threshold; signature bytes are not used as replay keys — secp256k1 accepts both `s` and `n − s` (malleable), while secp256r1 rejects high-S — so key replay protection on a nonce/counter inside the signed message
+<!-- verified: agave v4.4.0-beta.1 precompiles/src/ed25519.rs (num_signatures == 0 allowed when data.len() == 2), precompiles/src/secp256k1.rs (count == 0 allowed when data.len() == 1; test signs with flipped S), precompiles/src/secp256r1.rs (num_signatures == 0 or > 8 rejected; s <= half_order) -->
+
+*Sources: original analysis; precompile behaviour checked against agave v4.4.0-beta.1 `precompiles/src/{ed25519,secp256k1,secp256r1}.rs` (Apache-2.0, behaviour described, no code copied).*
 
 **Overall verdict:**
 - ✅: Program ID, signer, full message, offsets, and replay protection all verified

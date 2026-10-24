@@ -71,13 +71,13 @@ Four worked exploitations of the extensions above. Each assumes a protocol that 
 
 **PASS criterion:** The program rejects mints whose `FreezeAuthority` is not `None` (or not a trusted/program-controlled key) and rejects `DefaultAccountState::Frozen`, so no external party can freeze the withdrawal path. If a freeze authority is required for compliance, it must be program- or protocol-controlled and documented.
 
-#### (c) TransferHook remaining-accounts omission / reentrancy
+#### (c) TransferHook remaining-accounts omission / malicious hook
 
 **Scenario:** The custodied mint carries a `TransferHook` pointing at program `H`. Two failure modes:
 1. **Omission** — the vault builds a `transfer_checked` CPI without resolving the hook's extra accounts (via the transfer-hook interface) and without appending them to `remaining_accounts`. Token-2022 invokes `H`, which can't find its accounts, and the transfer reverts — deposits or withdrawals silently break (DoS), or worse, the developer "fixes" it by disabling checks.
-2. **Malicious hook / reentrancy** — `H` is attacker-controlled and unvalidated. During the transfer, `H` runs attacker code with whatever signer/writable accounts were forwarded and can re-enter the calling program (e.g. call `withdraw` again before the first `withdraw` updated state) or manipulate accounts it was handed. This is the Token-2022 analogue of a callback-reentrancy bug (see also KV-023).
+2. **Malicious hook** — `H` is attacker-controlled and unvalidated. During the transfer `H` runs attacker code. It **cannot** re-enter the calling program (A → Token-2022 → H → A fails with `ReentrancyNotAllowed`), and the source/mint/destination/authority it receives are read-only and non-signer. It can: read the caller's last-serialized state, use privileges on `ExtraAccountMeta` accounts configured writable/signer, CPI into third programs, burn compute, or revert (DoS). The hook authority can also swap `H` after allowlisting — re-check the hook program id on every transfer path (see also KV-023, KV-167).
 
-**PASS criterion:** The hook program is checked against an allowlist before the transfer, the hook's required accounts are correctly resolved and forwarded as `remaining_accounts`, and state follows checks-effects-interactions (all balance/accounting writes committed BEFORE the transfer CPI) so a re-entrant hook cannot double-spend. Only trusted hook programs are accepted for custodied mints.
+**PASS criterion:** The hook program is checked against an allowlist before the transfer, the hook's required accounts are correctly resolved and forwarded as `remaining_accounts`, and state follows checks-effects-interactions (all balance/accounting writes committed BEFORE the transfer CPI) so a hook that reads the caller's last-serialized state or acts through forwarded privileges never sees a half-updated invariant. Only trusted hook programs are accepted for custodied mints.
 
 #### (d) Transfer-fee balance-delta accounting error
 

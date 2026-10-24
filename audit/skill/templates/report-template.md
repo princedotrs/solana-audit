@@ -15,7 +15,7 @@
 **Branch:** <!-- branch name -->  
 **Date:** <!-- YYYY-MM-DD -->  
 **Auditor:** <!-- Agent or human name -->  
-**Scope:** <!-- FULL / PROGRAM / SPECIFIC (programs/instructions) -->  
+**Scope:** <!-- FULL / PROGRAM / OPSEC / SPECIFIC (programs/instructions) -->  
 **Program ID:** <!-- On-chain program address (if applicable) -->  
 **Framework:** <!-- Anchor <ver> / native solana-program / Pinocchio -->  
 **Out of Scope (off-chain):** <!-- TS client, backend, frontend, keeper, scripts — not reviewed by this skill -->  
@@ -67,6 +67,9 @@
 | Checklist / vector group | In scope? | Items evaluated / total | Trigger / reason |
 |---|---|---|---|
 | 01–07 on-chain | Yes/No | N / N | `.rs` / `Anchor.toml` / `solana-program` / `pinocchio` |
+| 21 Anchor-specific | Yes/No | N / N | `anchor-lang` dependency |
+| 22 Token-2022 | Yes/No | N / N | `token_2022` / `TokenInterface` / `transfer_hook` markers |
+| 23 Rust `unsafe` & panics | Yes | N / N | every Rust program (memory-safety sections gated on `unsafe` / zero-copy markers) |
 | 11, 12, 16 always-on | Yes | N / N | any program repo |
 | Known vectors | Yes | N / N | `known-vectors/INDEX.md` load-when markers |
 | Off-chain code (TS / Python / Go / …) | No — out of scope for this skill | — | listed, not reviewed |
@@ -97,26 +100,39 @@
 
 | # | Checklist | Items | Pass | Fail | Partial | N/A | Pass Rate |
 |---|---|---|---|---|---|---|---|
-| 01 | Account Validation | 90 | | | | | % |
-| 02 | Access Control | 55 | | | | | % |
-| 03 | Arithmetic Safety | 63 | | | | | % |
-| 04 | CPI & PDA | 70 | | | | | % |
-| 05 | State Machine | 74 | | | | | % |
-| 06 | Economic & Logic | 92 | | | | | % |
-| 07 | OpSec & Governance | 87 | | | | | % |
-| 11 | Supply Chain | 62 | | | | | % |
+| 01 | Account Validation | 112 | | | | | % |
+| 02 | Access Control | 66 | | | | | % |
+| 03 | Arithmetic Safety | 78 | | | | | % |
+| 04 | CPI & PDA | 91 | | | | | % |
+| 05 | State Machine | 91 | | | | | % |
+| 06 | Economic & Logic | 110 | | | | | % |
+| 07 | OpSec & Governance | 103 | | | | | % |
+| 11 | Supply Chain | 67 | | | | | % |
 | 12 | Secrets & OpSec | 53 | | | | | % |
-| 16 | Formal Verification & Testing | 73 | | | | | % |
+| 16 | Formal Verification & Testing | 106 | | | | | % |
+| 21 | Anchor-Specific | 30 | | | | | % |
+| 22 | Token-2022 Integrator & Hook Author | 30 | | | | | % |
+| 23 | Rust `unsafe`, Panics & Error Propagation | 20 | | | | | % |
 | | **Total** | **<!-- sum of applicable rows -->** | | | | | **%** |
 
 > Note: Only applicable checklists are counted in totals. Non-applicable checklists are excluded entirely.
+
+### Coverage & Limitations
+
+<!--
+Everything OUTPUT-RULES sends here: run status and verification lanes (Rule 10),
+partial reads or lost context (Rule 10), off-chain components not audited (Rule 7),
+execution mode and which steps ran target code (Rule 11a), outside services contacted (Rule 11b),
+tooling gaps such as Trail of Bits skills not installed or advisory DB unavailable (Rule 11e, FULL-AUDIT 3.2),
+and the cross-cutting passes `PASS-Pn: done / N/A (reason)` (FULL-AUDIT Step 1.5).
+-->
 
 ---
 
 ## 4. Findings
 
 > Only items with severity ≥ 4 require a full finding block.  
-> Items severity 1-3 are documented in the Item Results section (Section 4).
+> Items severity 1-3 are documented in the Item Results section (Section 5).
 
 ---
 
@@ -172,6 +188,10 @@
 #### Severity 4 — 🔵 LOW
 <!-- List F-XXX findings or "None" -->
 
+### Notes & Nitpicks
+
+<!-- Unscored observations with no security impact (OUTPUT-RULES Rule 1): `file:line — observation`, or "None" -->
+
 ---
 
 ## 5. Detailed Item Results
@@ -190,56 +210,56 @@
               Impact: {what can go wrong}
               Fix: {what to change}
 [N/A]       AV-004: {why not applicable}
-...through AV-090
+...through AV-112
 ```
 
 ### Checklist 02 — Access Control
 
 ```
 [PASS]      AC-001: {reason}
-...through AC-055
+...through AC-066
 ```
 
 ### Checklist 03 — Arithmetic Safety
 
 ```
 [PASS]      AR-001: {reason}
-...through AR-063
+...through AR-078
 ```
 
 ### Checklist 04 — CPI & PDA
 
 ```
 [PASS]      CPI-001: {reason}
-...through RE-007
+...through RE-010 (file order: CPI, PDA, EXT, RE)
 ```
 
 ### Checklist 05 — State Machine
 
 ```
 [PASS]      SM-001: {reason}
-...through SM-074
+...through SM-091
 ```
 
 ### Checklist 06 — Economic & Logic
 
 ```
 [PASS]      ECON-001: {reason}
-...through ECON-092
+...through ECON-110
 ```
 
 ### Checklist 07 — OpSec & Governance
 
 ```
 [PASS]      OPS-001: {reason}
-...through OPS-087
+...through OPS-103
 ```
 
 ### Checklist 11 — Supply Chain
 
 ```
 [PASS]      SC-001: {reason}
-...through SC-062
+...through SC-062 (file order; SC-063–SC-067 sit in §11.6, 67 items in all)
 ```
 
 ### Checklist 12 — Secrets & OpSec
@@ -253,7 +273,28 @@
 
 ```
 [PASS]      FV-001: {reason}
-...through FV-073
+...through FV-106
+```
+
+### Checklist 21 — Anchor-Specific
+
+```
+[PASS]      AN-001: {reason}
+...through AN-030
+```
+
+### Checklist 22 — Token-2022 Integrator & Hook Author
+
+```
+[PASS]      TK-001: {reason}
+...through TK-024, then HOOK-01 through HOOK-06
+```
+
+### Checklist 23 — Rust `unsafe`, Panics & Error Propagation
+
+```
+[PASS]      US-001: {reason}
+...through US-020
 ```
 
 ### Known Vectors Results (every vector in `known-vectors/INDEX.md`)
@@ -329,10 +370,10 @@
 
 ## 8. Code Maturity Scorecard
 
-> Engineering-quality gate (Phase 4.5), orthogonal to the risk score. 0 absent · 1 ad-hoc · 2 partial · 3 good · 4 strong (weakest-link).
+> Engineering-quality gate (FULL-AUDIT Phase 4.5), orthogonal to the risk score. Gated tiers: WEAK / MODERATE / SATISFACTORY / STRONG, per the Phase 4.5 criteria. Every rating cites evidence; a category that could not be evaluated is "not assessed: <reason>", never a default rating.
 
-| # | Category | Score (0-4) | Evidence (file:line / artifact) | Gap to next level |
-|---|----------|:-----------:|---------------------------------|-------------------|
+| # | Category | Rating | Evidence (file:line / team answer) | Gap to next tier |
+|---|----------|:------:|------------------------------------|------------------|
 | 1 | Access Controls | | | |
 | 2 | Arithmetic | | | |
 | 3 | Account & Type Safety | | | |
@@ -341,10 +382,11 @@
 | 6 | Fuzzing & Property Tests | | | |
 | 7 | Error Handling & DoS Resilience | | | |
 | 8 | Upgradeability & Governance | | | |
-| 9 | Monitoring & Incident Response | | | |
-| **Weighted Maturity** | | **X.X / 4.0** | | |
+| 9 | Event emission & emergency controls | | | |
+| 10 | Documentation | | | |
+| 11 | Complexity | | | |
 
-Categories scoring ≤ 1 are prioritized in the Remediation Roadmap regardless of individual finding severity.
+Categories rated WEAK are prioritized in the Remediation Roadmap regardless of individual finding severity.
 
 ---
 

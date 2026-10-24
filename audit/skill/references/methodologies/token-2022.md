@@ -58,18 +58,18 @@ grep -rn -E "transfer_hook|TransferFee|PermanentDelegate|ConfidentialTransfer|De
 ## 1. Per-extension bug / defense table
 
 Each row: what the extension does → the bug it introduces downstream → the canonical defense. This is the
-core of the methodology; the invariants (§2), coexistence matrix (§3), and allowlist tiers (§4) operationalize it.
+core of the methodology; the invariants (§2), coexistence rules (§3), and allowlist tiers (§4) operationalize it.
 
 | Extension | What it does | Downstream bug | Canonical defense |
 |---|---|---|---|
-| **TransferFee** | withholds a bps fee on every transfer; receiver gets `amount − fee`, fee accrues on the destination | **fee-blind accounting** — vault credits the *sent* `amount`, double-counting the fee; fees-on-fees geometric decay through wrapper hops | **read post-transfer balance delta** on the destination (`after − before`); credit the delta, never the `amount` arg. `transfer_checked_with_fee` only as a sanity assert, not a replacement (T1) |
-| **TransferHook** | invokes a protocol-defined program on every transfer, with `ExtraAccountMetaList`-resolved extra accounts, **inside the transfer CPI** | arbitrary CPI + **remaining-accounts injection** + **reentrancy** (hook calls back into the caller holding unflushed state); recursion (hook re-transfers same mint) hard-errors mid-tx; griefing (hook always reverts → mint untransferable) | **pin the hook program id against an allowlist** at mint registration; validate `ExtraAccountMetaList` derivation; treat the hook as **untrusted CPI**; flush caller state before the transfer; assume the hook reads everything its extra accounts grant (T2) |
+| **TransferFee** | withholds a bps fee on every transfer; receiver gets `amount − fee`, fee accrues on the destination | **fee-blind accounting** — vault credits the *sent* `amount`, double-counting the fee; fees-on-fees geometric decay through wrapper hops; withheld fees accrue on the destination and block CloseAccount (KV-168); the fee is epoch-dependent (older/newer fee; a newly set fee takes effect two epochs later); calculate_fee and the inverse-fee helpers are not interchangeable (§10) | **read post-transfer balance delta** on the destination (`after − before`); credit the delta, never the `amount` arg. `transfer_checked_with_fee` only as a sanity assert, not a replacement (T1) |
+| **TransferHook** | invokes a protocol-defined program on every transfer, with `ExtraAccountMetaList`-resolved extra accounts, **inside the transfer CPI** | arbitrary CPI + **remaining-accounts injection**; the hook is **untrusted code inside the caller's critical section**. It cannot call back into the calling program or into Token-2022 itself (both are indirect reentrancy, which the runtime rejects, so a hook can never re-transfer any Token-2022 token). It receives source/mint/destination/authority read-only and non-signer. It still reads the caller's accounts as last written to the account data (an Anchor `Account<T>` is not written back until exit), can CPI third programs, and can always revert (griefing: the mint becomes untransferable). The hook `authority` can point the mint at a different hook program at any time (`TransferHook` `Update`) | **pin the hook program id against an allowlist** at mint registration; validate `ExtraAccountMetaList` derivation; treat the hook as **untrusted CPI**; flush caller state before the transfer; **re-check the hook program id against the allowlist on every transfer path**, not only at registration; assume the hook reads everything its extra accounts grant (T2) |
 | **PermanentDelegate** | mint authority designates an account that can transfer/burn from **any** account of this mint with no holder signature | **third party can seize custodied tokens** — the delegate drains the vault; the protocol's own access control is bypassed entirely | **reject at custody time** — parse `permanent_delegate`; if non-default and not the protocol itself, refuse in the **allowlist**, not the deposit ix (T4) |
 | **FreezeAuthority / DefaultAccountState** | new accounts open in a chosen state (usually `Frozen`); freeze authority can freeze any account any time | **freeze DoS** — the vault account itself is frozen mid-flight, halting deposits/withdrawals/liquidations; deposits fail until thaw | prefer null freeze authority on critical paths; else **surface the freeze error clearly** (never swallow-and-retry into a stuck loop); document the trust assumption (T5); if the mint is SRFC-37 / Token ACL-gated (freeze authority delegated to a gate program) apply §9 |
 | **ConfidentialTransfer / ConfidentialMintBurn / ConfidentialBalances** | ElGamal-encrypted balances/amounts; transfers carry ZK proofs verified by the ZK ElGamal Proof Program | **opaque amounts break plaintext accounting**; **ZK soundness** is the trust root (Fiat-Shamir gaps were forgeable, 2025); a non-zero `auditor_pubkey` is a **decrypt backdoor** | treat the confidential balance as **opaque** (no plaintext shadow ledger); pin the **post-patch** ZK ElGamal Proof Program id; inspect + disclose `auditor_pubkey`, refuse non-zero unless explicitly accepted; escalate to ZK specialists (T8; cross-ref `references/vuln-classes/zk-and-compression.md`) |
 | **InterestBearing / ScaledUiAmount** | UI/display amount = `raw × multiplier` (Scaled) or `raw × (1+r)^t` (Interest); **raw `amount` is unchanged**; multiplier/rate is **mutable** by an authority | **display-vs-raw drift** — protocol quotes/settles in UI units at one boundary and raw at another → double- or under-count; cached multiplier goes stale on update | pick **one accounting layer (raw, internally)**; convert to UI only at the display boundary via the official helpers; **never cache** the multiplier/rate; treat any update as state-invalidating (T9) |
-| **MetadataPointer / MintCloseAuthority** | metadata pointer references a (possibly self / external) metadata account, authority can update it; close authority can close the mint account | **spoofing** — stale/attacker-controlled `(name, symbol, uri)`; embedded-metadata re-borrow hazard; **mint revival** — a closed mint account's address can be recreated, and code caching "mint X exists / decimals = d" is fooled | resolve the pointer + validate its owner program at **use-time**; use `spl_token_metadata_interface` to bounds-check embedded metadata; treat a mint with a live close authority as unstable — re-read mint state, don't cache existence/decimals across the close boundary (T7) |
-| **CpiGuard** | *account* extension: blocks the account being used as a CPI authority unless the caller owns it | absent CpiGuard, a protocol vault passed into an upstream program can be made to authorize an unintended transfer via authority-chain confusion | **enable CpiGuard on every protocol-owned Token-2022 vault**; disable only via an explicit admin ix + audit trail (T3) |
+| **MetadataPointer / MintCloseAuthority** | metadata pointer references a (possibly self / external) metadata account, authority can update it; close authority can close the mint account | **spoofing** — stale/attacker-controlled `(name, symbol, uri)`; embedded-metadata re-borrow hazard; **mint revival** — a closed mint account's address can be recreated, and code caching "mint X exists / decimals = d" is fooled; **mint resurrection**: existing token accounts keep their old account-level extensions and frozen state after the mint is re-created with a different extension set (KV-166) | resolve the pointer + validate its owner program at **use-time**; use `spl_token_metadata_interface` to bounds-check embedded metadata; treat a mint with a live close authority as unstable — re-read mint state, don't cache existence/decimals across the close boundary (T7) |
+| **CpiGuard** | *Account* extension that only the **owner** can enable or disable, and only at top level (inside a CPI it fails with `CpiGuardSettingsLocked`). While it is on, inside a CPI: Transfer and Burn signed by the owner are rejected, including when the owner is also the delegate or the permanent delegate, so they must be signed by a delegate; Approve is rejected; CloseAccount must send the lamports to the owner; the close authority can only be unset. Changing the account owner is rejected even at top level (`CpiGuardOwnerChangeBlocked`). | **Integration DoS**: a program that forwards the *user's* own signature into a Token-2022 `transfer_checked` CPI fails for every user who enabled CPI Guard. A PDA owner can sign only through `invoke_signed`, which is always a CPI, so a **PDA-owned vault cannot enable or use CPI Guard**. Historical: before the fix for Neodyme ND-ANZ-LO-01 (solana-program-library PR #6724, May 2024; the report's fix commit `dc85c98…`), the guard was skipped when the owner had delegated to itself. PR #6863 (June 2024) then generalised the check to every owner-signed Transfer and Burn, which also covers an owner that is the permanent delegate. | Pull user funds as a **delegate**: the user signs a top-level `Approve`/`ApproveChecked` to a program PDA, then the program transfers as the delegate via `invoke_signed` and verifies the balance delta. The pull must bind the source token account to the transaction signer (`token::authority = user`, user signs); if one delegate PDA is shared across users, anyone can otherwise pull from any account that approved it (KV-143, KV-165). Do not treat the guard as a control on clusters or test validators that run a pre-fix Token-2022 build (KV-137). The `anchor-spl` `cpi_guard_enable`/`cpi_guard_disable` wrappers can never succeed on-chain; they carry `#[deprecated]` from anchor-spl 1.2.0. |
 | **ImmutableOwner** | *account* extension: prevents `owner` change via `set_authority` | a brief window of misconfigured authority permanently reassigns vault ownership, locking out the protocol | **enable on every protocol-owned vault**; ATAs get it by default, manually-created vaults must opt in at init (T3) |
 | **Pausable** | global mint-level pause; when paused, `Transfer`/`MintTo`/`Burn` all revert | **liveness** — a paused mint halts liquidations, oracle rebalances, keeper actions; a pause toggled between simulate and execute weaponizes the failure; an insider can sandwich state transitions | treat the pause authority with **freeze/mint-authority-level scrutiny** (diversified, time-locked, multisig); reject hostile/unknown pause authority; surface pause errors clearly (T5/T10) |
 | **NonTransferable** | transfers always fail; only mint/burn/close work | **liveness** — code assuming "deposit ⇒ withdraw via transfer" breaks permanently; LP/share wrappers can't redeem | **reject at acceptance** from any flow requiring transfer-out; allow only where mint/burn/close semantics suffice (T5) |
@@ -84,8 +84,8 @@ For every protocol that integrates Token-2022, the following must hold. Evidence
 | # | Invariant | Failure = |
 |---|-----------|-----------|
 | **T1** | **Vault accounting tracks NET received, not GROSS sent** — a credited balance equals the destination's **post-transfer balance delta**, not the transfer's `amount` argument | Fee-on-transfer mint over-credits; share math inflated |
-| **T2** | **Transfer hooks are treated as untrusted CPI, configured acyclically** — hook program id is allowlisted, extra accounts are validated, caller state is flushed before the transfer, and a hook that re-transfers the same mint is impossible by construction | Reentrancy / remaining-accounts injection / griefing |
-| **T3** | **Protocol-owned Token-2022 vaults have `CpiGuard` + `ImmutableOwner` enabled** — not optional | Upstream authority confusion / ownership hijack |
+| **T2** | **Transfer hooks are treated as untrusted code in the critical section.** The hook program id is allowlisted and **re-checked on every transfer path**; extra accounts are validated; caller state is flushed before the transfer; no invariant may be false across the transfer. A hook cannot call back into the caller or into Token-2022 (indirect reentrancy is rejected), but it can act on third programs | Untrusted callee acting on inconsistent state via third programs, remaining-accounts injection, griefing |
+| **T3** | **Protocol-owned Token-2022 vaults have `ImmutableOwner`** (Token-2022 ATAs get it automatically; keypair or PDA token accounts opt in with `InitializeImmutableOwner` before `InitializeAccount`). **CPI Guard is not a vault control** (a PDA owner cannot enable it). Instead, user-funded flows are CPI-Guard-compatible (delegate pull, verified delta) | Ownership hijack / deposit DoS for guarded users |
 | **T4** | **PermanentDelegate-bearing mints are rejected at custody time** — inspected in the mint allowlist, refused if the delegate is not the protocol itself | Third party seizes custodied funds |
 | **T5** | **Freeze/pause/non-transferable states are handled, not swallowed** — any mint with active freeze authority (incl. `DefaultAccountState=Frozen`, `Pausable`, post-hoc `freeze_account`) or `NonTransferable` produces a clean surfaced error, never a retry loop or a silent success | Freeze/pause DoS wedges the protocol |
 | **T6** | **Token-program id is pinned** — `Interface<'info, TokenInterface>` + `token::token_program = token_program`; the program is not whichever was passed | Silent SPL Token vs Token-2022 confusion |
@@ -98,38 +98,20 @@ For every protocol that integrates Token-2022, the following must hold. Evidence
 
 ---
 
-## 3. Coexistence / compatibility matrix (which extensions are safe to accept)
+## 3. Coexistence / compatibility: what the runtime actually rejects
 
-The Token-2022 runtime **rejects illegal combinations at mint init**, so some worry is moot — but downstream
-code that branches on individual flags can still take a wrong path when two are present. Verify the matrix
-against the `spl-token-2022` version the protocol depends on (it has evolved). `Y` = coexist, `N` = mutually
-exclusive (runtime rejects), `~` = coexist with correctness caveats.
+Mint initialisation rejects only these combinations (`check_for_invalid_mint_extension_combinations` in `spl-token-2022-interface`, Token-2022 `main`; older `spl-token-2022` releases check fewer rules, so re-check against the pinned version):
+1. `ConfidentialTransferFeeConfig` without both `TransferFeeConfig` **and** `ConfidentialTransferMint`.
+2. `TransferFeeConfig` + `ConfidentialTransferMint` **without** `ConfidentialTransferFeeConfig`.
+3. `ConfidentialMintBurn` without `ConfidentialTransferMint`.
+4. `ScaledUiAmount` + `InterestBearingConfig`.
+5. `NonTransferable` + `ConfidentialTransferMint` **without** `ConfidentialMintBurn`.
 
-|                      | TransferFee | TransferHook | Confidential* | PermanentDelegate | NonTransferable | DefaultAcctState | MetadataPtr | InterestBearing | ScaledUiAmount | Pausable |
-|----------------------|:-----------:|:------------:|:-------------:|:-----------------:|:---------------:|:----------------:|:-----------:|:---------------:|:--------------:|:--------:|
-| TransferFee          | —           | **N**        | ~             | Y                 | **N**           | Y                | Y           | Y               | Y              | Y        |
-| TransferHook         | **N**       | —            | **N**         | Y                 | Y               | Y                | Y           | Y               | Y              | Y        |
-| Confidential*        | ~           | **N**        | —             | Y                 | **N**           | Y                | Y           | Y               | ~              | Y        |
-| PermanentDelegate    | Y           | Y            | Y             | —                 | Y               | Y                | Y           | Y               | Y              | Y        |
-| NonTransferable      | **N**       | Y            | **N**         | Y                 | —               | Y                | Y           | Y               | Y              | Y        |
-| DefaultAcctState     | Y           | Y            | Y             | Y                 | Y               | —                | Y           | Y               | Y              | Y        |
-| MetadataPtr          | Y           | Y            | Y             | Y                 | Y               | Y                | —           | Y               | Y              | Y        |
-| InterestBearing      | Y           | Y            | Y             | Y                 | Y               | Y                | Y           | —               | **N**          | Y        |
-| ScaledUiAmount       | Y           | Y            | ~             | Y                 | Y               | Y                | Y           | **N**           | —              | Y        |
-| Pausable             | Y           | Y            | Y             | Y                 | Y               | Y                | Y           | Y               | Y              | —        |
+Every other pair can be initialised, including **TransferHook + TransferFee** (common: fee-bearing hook mints), **TransferHook + Confidential**, and **NonTransferable + TransferFee** (redundant but legal). Integrators **must** handle fee + hook on the same transfer (T1 delta accounting *and* T2 hook rules).
 
-**Incompatibilities worth memorizing:**
-- `TransferHook × TransferFee` and `TransferHook × Confidential*` — runtime rejects (hook wants plaintext
-  amounts and to mutate the transfer flow; confidential has no plaintext, fee logic already mutates it).
-- `NonTransferable × TransferFee` / `× Confidential*` — there are no transfers to fee or encrypt.
-- `InterestBearing × ScaledUiAmount` — two scalar multipliers on the same UI amount is undefined.
-- `Confidential* × TransferFee` / `× ScaledUiAmount` (`~`) — they **coexist**, but the fee/scale is applied at
-  instruction-construction time **inside the ZK proof**, not on the resulting ciphertext. This combined path
-  is one of the **highest-bug-density surfaces** in the whole program — escalate it.
+Account extensions that Token-2022 creates with each token account (the source of mint resurrection, KV-166): `TransferFeeConfig` → `TransferFeeAmount`; `NonTransferable` → `NonTransferableAccount` + `ImmutableOwner`; `TransferHook` → `TransferHookAccount`; `Pausable` → `PausableAccount`.
 
-**Downstream branching rule:** branch on the **full extension tuple**, not on individual booleans. Code that
-independently checks "hook present?" and "confidential present?" can produce a wrong path when the mint's
-real combination is neither of the branches written.
+**Downstream branching rule:** branch on the full extension tuple, not individual booleans. `Confidential* × TransferFee` remains one of the highest-bug-density surfaces: the fee is proven inside the ZK proof, not applied to a plaintext amount.
 
 ---
 
@@ -220,13 +202,11 @@ grep -rn -E "auditor|elgamal|ZkE1Gama1Proof|proof_program"                      
   **The single most-reported Token-2022 integration finding**, across deposit/withdraw in every category.
   Beyond `AV-062` (credit from vault delta): confirm the delta is read **after** a `.reload()` and used for
   *all* downstream share/debt math.
-- **S2 — Transfer-hook reentrancy + injection (T2).** Hook calls back into the caller mid-transfer while the
-  caller holds unflushed in-memory state; or the hook's extra accounts overlap the caller's in an unexpected
+- **S2 — Transfer-hook untrusted code + injection (T2).** The hook cannot call back into the caller or Token-2022 (indirect reentrancy is rejected), but it runs while the caller holds unflushed in-memory state and can act on third programs, read stale account data, burn CU or revert; or the hook's extra accounts overlap the caller's in an unexpected
   way. Beyond `CPI-009` (validate program id of pass-through CPIs) and `KV-105`: the hook is an **untrusted
   program inside your CPI chain** — allowlist it and flush state before the transfer.
 - **S3 — PermanentDelegate accepted at integration (T4).** Deposit succeeds; the delegate drains the vault
-  later. Beyond `AV-063`/`AV-064`: the decision must live in the **allowlist**, and must also catch a
-  **post-hoc** delegate set on a previously-clean allowlisted mint (re-validate on deposit).
+  later. Beyond `AV-063`/`AV-064`: the decision must live in the **allowlist**, and must also catch a **rotation** of an existing permanent delegate (re-validate on deposit). A permanent delegate cannot be added to an already-initialised mint.
 - **S4 — Confidential-transfer ZK soundness + auditor key (T8).** The ZK ElGamal Proof Program is the trust
   root; Fiat-Shamir gaps were forgeable in 2025; a non-zero `auditor_pubkey` silently grants a third party
   decrypt over every transfer on the mint. Cross-ref `references/vuln-classes/zk-and-compression.md`; escalate
@@ -252,7 +232,7 @@ Each worksheet lists the safe shape. FAIL if any line is missing on any reachabl
 
 ### Vault deposit (accepting a Token-2022 mint)
 - The mint passed the **allowlist tier** (§4); its extension set was parsed with the official accessor (T11)
-  and re-validated for a post-hoc `PermanentDelegate` / authority change (T4).
+  and re-validated for a `PermanentDelegate` rotation / authority change (T4).
 - Balance read **pre** transfer; `transfer_checked` with current decimals; `.reload()`; balance read **post**;
   **credit = post − pre** (T1). Refuse if the delta is zero or negative.
 - Token program pinned via `Interface<TokenInterface>` + `token::token_program` (T6).
@@ -281,8 +261,9 @@ Each worksheet lists the safe shape. FAIL if any line is missing on any reachabl
   change monitor.
 
 ### Protocol-owned vault initialization
-- `ImmutableOwner` enabled; `CpiGuard` explicitly enabled (`enable_cpi_guard`) — ATAs get ImmutableOwner by
-  default but CpiGuard must be opted in (T3).
+- `ImmutableOwner` enabled (Token-2022 ATAs get it by default; other token accounts opt in before
+  `InitializeAccount`). User-side CPI-Guard compatibility is tested; CPI Guard is never expected on a
+  PDA-owned vault (T3).
 
 ---
 
@@ -290,7 +271,7 @@ Each worksheet lists the safe shape. FAIL if any line is missing on any reachabl
 
 A Token-2022 integration is **not tested** if the suite uses only the bare SPL Token program. Minimum bar:
 
-- **Extension-combination fuzz (T11, §3).** Generate mints across every **legal** combination from the matrix;
+- **Extension-combination fuzz (T11, §3).** Generate mints across every **legal** combination (§3);
   run deposit/swap/withdraw for each; assert correct accounting in every case. Branch on the full tuple.
 - **Differential transfer-fee tests (T1) — MANDATORY.** For a deposit of `x` at `y` bps, assert the vault
   credit equals `x − fee(x, y)` — across fee configs including 0, 1, and a high cap, plus a deposit→immediate
@@ -298,13 +279,12 @@ A Token-2022 integration is **not tested** if the suite uses only the bare SPL T
 - **Transfer-hook smoke (T2).** Deploy a **no-op**, a **logging**, a **reverting**, and a **recursive** hook.
   Assert the protocol is correct or reverts **cleanly** for each; the recursive hook must produce a clean error,
   not undefined behavior; the reverting hook must not wedge the protocol.
-- **PermanentDelegate refusal (T4).** Register a mint with a permanent delegate → **refused**. Allowlist a
-  clean mint, then set its permanent delegate post-hoc and deposit → **detected/refused**.
+- **PermanentDelegate refusal (T4).** Register a mint with a permanent delegate → **refused**. On a tolerated permanent-delegate mint, rotate the delegate (`SetAuthority(PermanentDelegate)`) and deposit → **detected/refused** (adding one post-init is impossible).
 - **Frozen / paused tolerance (T5).** Deposit into and withdraw from a frozen vault, transfer through a frozen
   intermediate, and pause the mint mid-transaction (validator-level) → each **surfaces cleanly** with the right
   error, never swallowed; resume → state consistent.
-- **CpiGuard enforcement (T3).** Use a protocol vault as the authority for a CPI from an unrelated program →
-  **blocked**; disabling CpiGuard is explicitly admin-gated.
+- **CPI-Guard compatibility (T3).** A user account with the guard on can still deposit through the
+  delegate-pull path; an owner-signed CPI pull fails as expected (`CpiGuardTransferBlocked`).
 - **Scaled / interest-bearing accounting (T7/T9).** Change the multiplier/rate after deposit, before withdraw →
   the protocol uses **raw** internally and the user-visible UI amount reflects the new multiplier **without**
   changing bookkeeping.
@@ -413,13 +393,66 @@ Use **Surfpool** with the mainnet Token ACL program and the reference `token-acl
 
 ---
 
+<!-- verified: token-2022 main (program@v11.1.0 era) program/src/processor.rs (CPI Guard checks in transfer/burn/approve/set_authority/close; hook Execute call site), program/src/extension/cpi_guard/processor.rs (CpiGuardSettingsLocked under in_cpi), interface/src/extension/mod.rs (check_for_invalid_mint_extension_combinations, required_init_account_extensions, adjust_len_for_multisig), interface/src/extension/transfer_fee/mod.rs, program/src/extension/transfer_fee/processor.rs (newer fee = epoch + 2), program/src/extension/confidential_transfer_fee/processor.rs; spl-transfer-hook-interface 0.4.1 src/instruction.rs (Execute metas read-only, non-signer); anchor v1.2.0 spl/src/token_2022_extensions/cpi_guard.rs (#[deprecated], absent in v1.1.0); token-2022 git log 51275605 (#6724 self-delegate CPI Guard fix, = Neodyme report fix dc85c98) and d1281814 (#6863 all owner-signed paths); program/src/processor.rs SetAuthority(PermanentDelegate) validates the current delegate; interface/src/extension/confidential_transfer/mod.rs valid_as_destination (counter > maximum fails) -->
+
+## 10. Fee helpers and epochs
+- `calculate_fee(gross)` is the fee charged on an amount sent. For "the receiver must net `net`", use `calculate_pre_fee_amount(net)` (the gross to send) or `calculate_inverse_fee(net)` (the fee on that gross). Using `calculate_fee(net)` as the top-up shorts the receiver by `fee(net + fee(net)) − fee(net)`. That is second order in the rate and grows with the amount (1 % on 1,000,000 → short by 100). It differs from ±1 rounding, and it shrinks to zero once both fees hit `maximum_fee`. To pay exactly X net, use the inverse helper and pass the fee to `transfer_checked_with_fee`, which fails with `FeeMismatch` if the fee is wrong.
+- `TransferFeeConfig` holds `older_transfer_fee` and `newer_transfer_fee`. `SetTransferFee` schedules the new fee for **current epoch + 2**. Compute fees at use time with `get_epoch_fee(Clock::get()?.epoch)` / `calculate_epoch_fee(epoch, amount)`. Never cache the bps across an epoch boundary, and pair fees with slippage bounds, because a scheduled fee change can take effect at an epoch boundary between quote and settle.
+
+```
+rg -n "newer_transfer_fee|older_transfer_fee|transfer_fee_basis_points|calculate_(inverse_|epoch_|inverse_epoch_)?fee|calculate_pre_fee_amount|get_epoch_fee" programs/
+```
+
+## 11. Authority inventory (post-allowlist powers)
+| Authority | Power that matters downstream |
+|---|---|
+| `TransferHook.authority` | point the mint at another hook program (an always-reverting hook bricks transfers); re-check `program_id` on every transfer path |
+| `freeze_authority` | freeze/thaw; update `DefaultAccountState` to `Frozen` later, so vaults created afterwards start frozen (T5) |
+| `ConfidentialTransferMint.authority` | approve accounts, toggle auto-approve, change the auditor ElGamal key (re-check at use, T8) |
+| `ConfidentialTransferFeeConfig.authority` | enable/disable harvesting confidential withheld fees to the mint |
+| `TransferFeeConfig.withdraw_withheld_authority` | sweep withheld fees, both plaintext and confidential (the confidential path also checks the configured withdraw ElGamal key) |
+| `transfer_fee_config_authority` | change the fee (effective two epochs later) |
+| `MintCloseAuthority` | close the mint at zero supply → re-creation (KV-166) |
+| `InterestBearingConfig.rate_authority` | change the rate (T7/T9) |
+| `ScaledUiAmountConfig.authority` | change the UI multiplier (T7/T9) |
+| `PausableConfig.authority` | pause/resume transfers, mints and burns (T5) |
+| Group/member pointer, `TokenGroup`/`TokenMetadata` update authority | repoint, add members, rewrite name/symbol/uri |
+| `mint_authority` | mint; also `WithdrawExcessLamports` from the mint account (explains lamport movements) |
+| `PermanentDelegate.delegate` | transfer/burn from any account of the mint; the current delegate itself signs `SetAuthority(PermanentDelegate)` to rotate or clear it (once cleared it cannot be set again), so trust follows whoever controls the delegate key |
+
+Note: a **PermanentDelegate cannot be added after `InitializeMint`** (its init instruction only accepts an uninitialised mint), but an existing one can be rotated or cleared by the current delegate. The mint authority *can* add `TokenMetadata`, `TokenGroup` and `TokenGroupMember` to an initialised mint (with the matching pointer). A registration fingerprint of the extension set must therefore leave out these variable-length extensions (or treat their addition as benign). It should hash `u16::from(ext)` values, since `ExtensionType` has no Borsh impl, and include the rotatable authority keys (hook program, permanent delegate, freeze authority). Protocols that *tolerate* a permanent-delegate mint (compliance clawback, RWA) must reconcile stored totals with actual balances. They must handle `vault.amount < recorded_total` and `== 0` without division by zero, without underflow, and without paying one user from another's funds.
+
+## 12. Confidential-transfer liveness and privacy
+- Each incoming confidential credit increments `pending_balance_credit_counter`. Once the counter reaches `maximum_pending_balance_credit_counter` (set at `ConfigureAccount`; no instruction updates it), further confidential credits *to* the account fail until the owner runs `ApplyPendingBalance`. An attacker can spam tiny credits to block time-critical incoming payments (liquidations, auctions, settlements).
+- `ApplyPendingBalance` carries no ZK proof. It adds the pending ciphertexts homomorphically, then records the expected and actual counters plus a client-supplied decryptable balance. A credit that lands concurrently does not make it fail: the counter mismatch shows up and the owner recomputes. A larger maximum costs client-side decryption, not proof generation.
+- A program-driven flow that applies and then withdraws right after a single incoming credit reveals the credited amount. Batch or delay, or document it in the privacy claims.
+- Owners can disable confidential or non-confidential credits on their accounts; push paths must tolerate that (KV-169).
+
+```
+rg -n "ApplyPendingBalance|apply_pending_balance|maximum_pending_balance_credit_counter|pending_balance_credit_counter|(Enable|Disable)(Non)?ConfidentialCredits" programs/
+```
+
+## 13. Extension policy table (reporting discipline)
+Every extension that can affect value, authority, liveness, display or close behaviour gets exactly one policy:
+
+| Extension or behavior | Policy | Evidence required | Residual risk |
+|---|---|---|---|
+| Transfer fee | supported/rejected/residual risk | balance-delta tests, fee lifecycle review | over-credit, close failure |
+| Transfer hook | supported/rejected/residual risk | hook program policy, extra-account validation | callback and liveness risk |
+
+(Extend with every other extension in §1.) Every accepted extension needs one positive test and one negative test, and the negative test proves the rejection happens **before** any state mutation. Minimum negative tests: wrong token program variant; unsupported extension mix; fee mint where net received < requested; hook mint with an unapproved hook; memo-required destination without memo; default-frozen source/destination; permanent delegate present; close path with withheld fees present.
+
+*Sources: Neodyme "SPL Token-2022: Don't shoot yourself in the foot with extensions" and Neodyme Token-2022 audit for Anza (ND-ANZ-LO-01, ND-ANZ-IN-01; fix history checked against token-2022 git log: #6724, #6863) [paraphrased, cited: https://neodyme.io/en/blog/token-2022 ; https://www.neodyme.io/reports/Token%202022%20-%202024.pdf]; sanbir/solana-auditor-skills B10 (MIT, Copyright (c) 2024 AI Skills Contributors); solana-foundation/solana-dev-skill #6a/#6b (MIT, Copyright (c) 2026), drift wording corrected; beriktassuly/solana-audit-skill extension policy table: the two table rows are [verbatim, MIT, (c) 2026 Berektassuly]; qedgen/solana-skills C1 (MIT, Copyright (c) 2025 QEDGen); original analysis. Behaviour checked against solana-program/token-2022 `main` and anchor v1.2.0.*
+
+---
+
 ## Token-2022 integration checklist (fast pass)
 
 - [ ] Extension set parsed with the official `StateWithExtensions` accessor; branching is on the full tuple, not one flag (T11)
 - [ ] Vault credit = post-transfer destination delta (after `.reload()`), never the `amount` arg — fee-aware (T1)
-- [ ] Transfer hooks allowlisted + treated as untrusted CPI; extra accounts validated; caller state flushed pre-transfer; recursion impossible (T2)
-- [ ] Every protocol-owned vault has `CpiGuard` + `ImmutableOwner` enabled (T3)
-- [ ] PermanentDelegate rejected at custody time in the allowlist; post-hoc delegate re-validated on deposit (T4)
+- [ ] Transfer hooks allowlisted + treated as untrusted CPI; extra accounts validated; caller state flushed pre-transfer; hook revert/CU/third-program effects handled (re-entry is rejected by the runtime) (T2)
+- [ ] Protocol-owned vaults have `ImmutableOwner`; user-funded pulls work for CPI-Guard-enabled user accounts (delegate pull) (T3)
+- [ ] PermanentDelegate rejected at custody time in the allowlist; delegate rotation re-validated on deposit (T4)
 - [ ] Freeze / pause / non-transferable states surfaced cleanly — no swallow, no retry loop (T5)
 - [ ] Token program pinned via `Interface<TokenInterface>` + `token::token_program`; never assumed (T6)
 - [ ] Decimals read from the mint; ScaledUi/InterestBearing multiplier/rate resolved at use-time, never cached (T7)
@@ -433,7 +466,7 @@ Use **Surfpool** with the mainnet Token ACL program and the reference `token-acl
 
 *Public incidents referenced: ZK ElGamal Proof Program soundness disclosures (2025, whitehat — Fiat-Shamir
 transcripts omitting public values, enabling forged proofs on the confidential-transfer path). Token-2022
-extension semantics, the coexistence matrix, and the fee/hook/confidential mechanics are public program
+extension semantics, the coexistence rules, and the fee/hook/confidential mechanics are public program
 documentation. Cross-refs: `AV-058`/`AV-060`/`AV-061` (token-program pinning, `_checked` variants, decimals
 from mint), `AV-062` (credit from vault delta), `AV-063`/`AV-064`/`AV-066` (extension inspection, clawback/
 freeze rejection, mint allowlist), `CPI-009` (validate pass-through CPI program id), `KV-105` (Token-2022

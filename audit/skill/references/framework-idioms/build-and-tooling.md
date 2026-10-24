@@ -82,15 +82,18 @@ source do nothing at runtime. Confirm it is present:
 overflow-checks = true
 ```
 
+**Where it must be set.** Cargo ignores `[profile.*]` in non-root workspace members (it warns), so `overflow-checks = true` counts only in the **workspace-root** `Cargo.toml` (or the program's own manifest when it is not a workspace member); a hit in `programs/x/Cargo.toml` alone is a false PASS. Since Anchor 0.30 (#2716) `anchor build` refuses to build unless the workspace-root release profile sets the key explicitly — an explicit `overflow-checks = false` still passes that check, and a direct `cargo build-sbf` bypasses it — so a missing flag is mostly a native/Pinocchio/non-workspace issue, or an explicit `false`. Even when set, an overflow **panics** (a liveness/DoS risk on liquidation, settlement and crank paths) and integer `as` casts still truncate (AR-014..017).
+
+<!-- verified: anchor v1.2.1 cli/src/checks.rs `check_overflow` (error only when `profile.release.overflow_checks` is absent) and cli/src/lib.rs call site (workspace-root Cargo.toml) -->
+
 ### 1.7 Version migration quick reference
 
 - **0.29 → 0.30:** change `.accounts({...})` → `.accountsPartial({...})`; add the `idl-build`
   feature (§1.4).
 - **0.30 → 0.31:** drop direct `solana-program` / `solana-sdk` deps; use
   `anchor_lang::prelude::*` instead.
-- **0.31 → 0.32:** `solana-program` fully removed — use `solana_pubkey::Pubkey` or the
-  prelude. **Duplicate mutable accounts now error by default** — resolve with the `dup`
-  constraint (note this is also a security-relevant default; see `anchor.md` §5).
+- **0.31 → 0.32:** anchor-lang replaces its `solana-program` dependency with the split crates (`solana-pubkey`, `solana-program-error`, …; #3819) and re-exports them under `anchor_lang::solana_program`; import through the prelude (0.32.1 adds `solana_program` to it, #3975). The CLI warns about a direct `solana-program` dependency (since 0.31, #3250). Duplicate mutable accounts are still **accepted** in 0.32.
+- **0.32 → 1.0:** duplicate mutable accounts error by default (#3946) for serialize-on-exit types only; `dup` opts out (see FP-6, `anchor.md` §5/§9). `CpiContext::new` takes a `Pubkey` (#2762). Legacy IDL instructions removed (#3798); from 1.1.0 they can be re-enabled with the deprecated `#[program(legacy_idl)]`. `reload()` re-checks owner (#3837). Untyped `Program<'info>` added (#3878). borsh 1.5.7 (#4012). Solana 3.x crates (#4031).
 
 ### 1.8 `Connection refused` / IPv6 in tests (test hangs)
 
@@ -111,6 +114,17 @@ the program name exactly.
 Warnings like `anchor-lang version(0.32.1) and CLI(0.30.1) don't match` are **cosmetic** —
 builds succeed. Align `Anchor.toml [toolchain]` and `avm install <version>` to clear them.
 Do not treat as a finding.
+
+### 1.11 Anchor 1.x audit-environment notes
+- `anchor test` / `anchor localnet` on Anchor ≥ 1.0 start **Surfpool** by default (#4106); the legacy `solana-test-validator` is chosen by CLI flag, and `skip_local_validator` in `Anchor.toml` skips the validator for in-process (LiteSVM/Mollusk) templates. Before any `anchor` command read `Anchor.toml` `[surfpool]` (`datasource_rpc_url` means remote RPC calls — Rule 11b), `[hooks]` (#3862: `{pre,post}-{build,test,deploy}` shell commands — target code, Rule 11a/11f) and `[scripts]`.
+- Programs that depend directly on SPL program crates built on Solana 2.x crates (e.g. `spl-token` 7.x/8.x) hit `Pubkey`/`Address` type mismatches under Anchor 1.x (Solana 3.x crates); anchor-spl 1.x uses `spl-token-interface` / `spl-token-2022-interface` 2.x instead. A build blocker, not a vulnerability.
+- Hard-coded rent constants (`2_039_280` for a 165-byte token account, `890_880` for a 0-byte account, …) go stale when extensions change the size or when the rent rate changes (AR-075). Agave carries feature gates for staged lamports-per-byte reductions (SIMD-0437: 6333 → 5080 → 2575 → 1322); check their activation on the target cluster and require `Rent::get()?.minimum_balance(len)` instead of constants.
+
+### 1.12 Mixed-framework repositories
+If more than one framework is present (`rg -l "anchor_lang"` and `rg -l "pinocchio|solana_program::entrypoint"` both hit), audit each on-chain crate under its own idiom file and compare discriminators, field order and padding for every layout shared across crates (`pinocchio.md` §7).
+
+<!-- verified: anchor CHANGELOG v1.2.1 (0.31.0 #3250; 0.32.0 #3819; 0.32.1 #3975; 1.0.0 #2762/#3798/#3837/#3862/#3878/#3946/#4012/#4031/#4106); anchor v1.2.1 cli/src/config.rs (`ValidatorType { Surfpool (default), Legacy }` set from CLI flags, `skip_local_validator`, `[surfpool] datasource_rpc_url`, `hooks`); anchor v1.0.0 spl/Cargo.toml (`spl-token-interface = "2"`, `spl-token-2022-interface = "2"`); token program@v7.0.0 (solana-program 2.1), program@v8.0.0 (solana-* 2.2), program@v9.0.0 (solana-* 3.0); agave v4.5.0-alpha.2 feature-set/src/lib.rs (`set_lamports_per_byte_to_{6333,5080,2575,1322}` = SIMD-0437-1..4) -->
+*Sources: CDSecurity/cdsecurity-skills and Trail of Bits/workersio review notes (overflow-checks location, #2716) [paraphrased]; otter-sec/anchor CHANGELOG (Apache-2.0); solana-foundation/solana-dev-skill #12 (MIT, Copyright (c) 2026) — items re-checked against primary sources; franpersanchez/solana-audits-skill #2 (MIT, Copyright (c) 2026 Fran Pérez).*
 
 ---
 
@@ -239,6 +253,7 @@ Not a scored checklist — a triage sequence when the target won't build/test:
 - [ ] Host GLIBC vs. tool floor checked (Anchor CLI ≥2.38/2.39; LiteSVM ≥2.38) (§1.1, §3.1)
 - [ ] `Cargo.lock` present and committed; `edition2024` pins applied if platform-tools v1.48 (§2.4)
 - [ ] Disk headroom ≥ 2 GB for platform-tools; `--force-tools-install` if corrupted (§2.3)
-- [ ] **`overflow-checks = true`** in `[profile.release]` — else runtime arithmetic checks are inert (§1.6) — *this one is audit-relevant, flag it if absent*
+- [ ] **`overflow-checks = true`** in the **workspace-root** `[profile.release]` — else runtime arithmetic checks are inert (§1.6) — *this one is audit-relevant, flag it if absent or explicitly `false`*
+- [ ] Anchor 1.x: `Anchor.toml` `[surfpool]`, `[hooks]` and `[scripts]` read before any `anchor` command (§1.11); mixed-framework repos split per crate (§1.12)
 - [ ] Test runner loads (LiteSVM → bankrun/Mollusk fallback on old GLIBC) so a PoC harness can run (§3.1)
 - [ ] Version/CLI-mismatch **warnings** that still build correctly are noted, not reported as findings (§1.10)

@@ -40,6 +40,14 @@ grep -rn --include="*.rs" -iE "circuit.?breaker|max.*outflow|rate.?limit|withdra
 - ✅ PASS: an aggregate-outflow / rate-limit circuit breaker caps how much value any admin path (including a replayed one) can move per window, and a guardian can pause
 - ❌ FAIL: no outflow cap — a single replayed governance transaction can drain the protocol
 
+**Step 5: Nonce-authority custody**
+- ✅ PASS: the nonce authority of every nonce account used for privileged pre-signed transactions is held with quorum ≥ the transaction's quorum
+- ❌ FAIL: a single or external nonce authority — honest signers cannot revoke an outstanding approval (anyone holding the signed bytes can submit it until the nonce advances; only the nonce authority can advance it)
+- Review signals (not proof): timelock removal/shortening; threshold reduction or signer rotation bundled with other admin changes; emergency-authority migration before a high-impact action; signer churn; pre-signed admin txs accepted without fresh confirmation (OPS-092)
+- False-positive guard: durable nonces alone are not a finding.
+
+*Sources: beriktassuly/solana-audit-skill U7 (MIT, Copyright (c) 2026 Berektassuly).*
+
 **Overall verdict:**
 - ✅: Admin/governance instructions are recent-blockhash-only (or version/epoch-guarded), gated by a timelock, and bounded by an aggregate-outflow circuit breaker
 - ⚠️: Recent-blockhash-only or version-guarded, but no timelock or no outflow cap

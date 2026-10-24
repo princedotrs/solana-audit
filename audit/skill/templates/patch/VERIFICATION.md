@@ -99,6 +99,15 @@ exploit earns `[FIX-VERIFIED]`. If there is no executable PoC to run, stop at
   cited bound.
   - [ ] No adjacent path regressed.
 
+### Differential fuzz regression (Trident)
+Call `self.trident.track_account_regression(&acc, "name")` on the critical accounts, set `[fuzz.regression] enabled = true` in `Trident.toml`, run the **same master seed** (`trident fuzz run <target> <master_seed>`) against the old and patched builds, then `trident compare a.json b.json` to list iteration seeds whose end state diverged. Every divergence must be explained by the fix; an unexplained one is a regression candidate for the `re-audit` playbook (commands/re-audit.md). Exclude time-dependent fields.
+
+### Mutation check
+On the patched lines, a `cargo mutants` mutant that survives the test suite means the suite cannot detect the fix being reverted (Rust host tests only — Mollusk/LiteSVM/program-test; it does not drive TS tests; runs the suite — Rule 11f).
+
+<!-- verified: trident crates/fuzz/src/trident/metrics.rs `track_account_regression`; documentation/docs/trident-advanced/regression/index.md; documentation/docs/basics/commands.md (`trident compare <FILE1> <FILE2>`, `trident fuzz run <target> [seed]`) -->
+*Sources: Ackee-Blockchain/trident (MIT, Copyright (c) 2021 Ackee Blockchain); original analysis.*
+
 ## 4. Verdict → report's Auditor Verification field
 
 Emit exactly one, and write it to the finding's **Auditor Verification** line:
