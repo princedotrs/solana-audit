@@ -34,7 +34,7 @@ The folder is self-contained. Install it as an agent skill by copying the **whol
 ```bash
 # example: a user-level skills directory; use the path your agent reads skills from
 mkdir -p ~/<agent-config-dir>/skills
-cp -R audit/skill ~/<agent-config-dir>/skills/solana-program-audit
+cp -R skills/solana-program-audit ~/<agent-config-dir>/skills/
 ```
 
 Install it **outside** the repository you are auditing. Every bundled path (`checklists/`, `templates/`, `scripts/`, `tools/`, …) resolves from the skill folder, never from the audited repo ([OUTPUT-RULES.md](OUTPUT-RULES.md) Rule 11e). Agents without a skills mechanism can be pointed at `SKILL.md` directly. To update, replace the folder; record per-target layout at intake rather than editing `discovery/file-map.md`.

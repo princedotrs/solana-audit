@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package skill
+        run: |
+          mkdir -p dist/solana-program-audit
+          cp -R skills/solana-program-audit/. dist/solana-program-audit/
+          cd dist
+          zip -rq solana-program-audit.zip solana-program-audit
+          tar -czf solana-program-audit.tar.gz solana-program-audit
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/solana-program-audit.zip \
+            dist/solana-program-audit.tar.gz \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes

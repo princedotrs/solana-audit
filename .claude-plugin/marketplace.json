@@ -1,0 +1,31 @@
+{
+  "name": "solana-audit",
+  "description": "Security audit skills for Solana on-chain programs",
+  "owner": {
+    "name": "princedotrs",
+    "url": "https://github.com/princedotrs"
+  },
+  "plugins": [
+    {
+      "name": "solana-program-audit",
+      "source": "./",
+      "description": "Security audit of Solana on-chain programs in Rust (Anchor, native solana-program, Pinocchio): checklists, known attack vectors, PoC and patch templates, and audit reports",
+      "version": "1.0.0",
+      "author": {
+        "name": "princedotrs",
+        "url": "https://github.com/princedotrs"
+      },
+      "homepage": "https://github.com/princedotrs/solana-audit",
+      "repository": "https://github.com/princedotrs/solana-audit",
+      "license": "MIT",
+      "keywords": [
+        "solana",
+        "security",
+        "audit",
+        "anchor",
+        "pinocchio",
+        "rust"
+      ]
+    }
+  ]
+}
