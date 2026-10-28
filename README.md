@@ -54,12 +54,40 @@ Chat apps: download `solana-program-audit.zip` from [Releases](https://github.co
 
 Manual: `cp -R skills/solana-program-audit <your-agent-skills-dir>/`
 
-**Use:**
+### After installing
+
+1. **Restart your agent** (or open a new session) so it picks up the new skill.
+2. **Open your Solana program's repository** in the agent, at the root, next to `Cargo.toml` / `Anchor.toml`. Commit or stash your work first, so you can see exactly what the audit writes.
+3. **Ask for an audit in plain English.** The skill loads by itself when you ask to audit or review Solana program code. To be sure it's used, name it: `...using the solana-program-audit skill`. In Claude Code you can also call it directly with `/solana-program-audit` (plugin install: `/solana-program-audit:solana-program-audit`).
+
+Start with a quick audit:
 
 ```
 Audit the Solana program in programs/<your_program>/ and write the findings to audit.md
-Audit the entire repository using the solana-program-audit skill with FULL scope
 ```
+
+Then go deeper:
+
+```
+# full audit: every checklist item and vector gets a verdict, report in audit_<n>/REPORT.md
+Audit the entire repository using the solana-program-audit skill with FULL scope
+
+# one instruction, one checklist, or a PR
+Review the withdraw instruction in programs/<your_program>/src/instructions/withdraw.rs with solana-program-audit
+Run solana-program-audit checklist 03 (Arithmetic Safety) on programs/<your_program>/
+Audit the changes in main..feature-branch with solana-program-audit
+
+# after fixing
+Write a PoC exploit test for finding F-001 using solana-program-audit
+Re-audit the fixes against audit_1/REPORT.md with solana-program-audit
+```
+
+**What you get:** each finding has a severity (Critical / High / Medium / Low / Info, scored 1–10), the affected file and line, an exploit scenario and a suggested fix. Quick audits write `audit.md`; full audits write `audit_<n>/REPORT.md`.
+
+**Tips:**
+- Use your agent's strongest model and give it time. A full audit of a large program is a long, multi-step run.
+- Keep `Cargo.lock` in the repo. The skill reads exact Anchor / SPL / Pinocchio versions from it to rule version-specific bugs in or out.
+- Treat findings as leads to verify, not final verdicts. Ask for a PoC on anything High or Critical.
 
 Full layout, all modes, optional tooling (bundled Rust pre-scanner, Trident, Kani, Trail of Bits skills) and limitations: [skills/solana-program-audit/README.md](skills/solana-program-audit/README.md). Start-of-audit instructions for the agent: [skills/solana-program-audit/SKILL.md](skills/solana-program-audit/SKILL.md).
 
