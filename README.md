@@ -1,4 +1,4 @@
-# agent-skills
+# solana-audit: an agent skill for auditing Solana programs
 
 Skills for coding agents. Each skill is a self-contained folder with a `SKILL.md` entry point that an agent loads on demand.
 
